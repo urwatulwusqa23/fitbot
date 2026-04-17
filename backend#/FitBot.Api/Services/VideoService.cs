@@ -19,24 +19,6 @@ namespace FitBot.Api.Services
             return Path.Combine(AppContext.BaseDirectory, fileName);
         }
 
-        // Seed data embedded — matches your videos.json
-        private static readonly List<VideoDto> SeedVideos = new()
-        {
-            new VideoDto { Title = "20 min Fat Burning HIIT Workout - All Standing, No Jumping", Link = "https://www.youtube.com/watch?v=1V3LgKFZ3dI", Tags = new(){"fat loss","hiit","home workout"} },
-            new VideoDto { Title = "30 Min Intense HIIT Workout For Fat Loss (No Equipment)",   Link = "https://www.youtube.com/watch?v=4nPKyvKmFi0", Tags = new(){"fat loss","hiit","home workout"} },
-        };
-
-        private static readonly List<(string Keyword, string[] Synonyms)> SeedSynonyms = new()
-        {
-            ("skinny", new[]{"bulking","muscle build","mass","hypertrophy"}),
-            ("thin",   new[]{"bulking","muscle build"}),
-        };
-
-        private static readonly string[] SeedStopWords =
-        {
-            "i","am","want","to","a","have","lot","of","on","so","exercise","exercises"
-        };
-
         public VideoService(AppDbContext context, IConfiguration config, IHttpClientFactory httpClientFactory, ILogger<VideoService> logger)
         {
             _context = context;

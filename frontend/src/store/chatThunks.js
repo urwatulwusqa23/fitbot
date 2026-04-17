@@ -44,6 +44,8 @@ export const sendMessage = (inputText) => async (dispatch, getState) => {
       sender: "bot",
       timestamp: new Date().toISOString(),
       source: response.source || "ai",
+      videos: response.videos || null,
+      videoMessage: response.videoMessage || null,
     };
 
     dispatch(addMessage(botMessage));

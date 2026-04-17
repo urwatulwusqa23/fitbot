@@ -7,6 +7,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { sendMessage } from "../store/chatThunks";
 import { setUserProfile, createSession, selectActiveMessages } from "../store/chatSlice";
 import { api } from "../services/api";
+import VideoPanel from "./VideoPanel";
 import "./ChatBot.css";
 
 const TypingIndicator = () => (
@@ -27,12 +28,12 @@ const TypingIndicator = () => (
 );
 
 const ChatBot = () => {
-  const navigate   = useNavigate();
-  const dispatch   = useDispatch();
-  const messages   = useSelector(selectActiveMessages);
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const messages = useSelector(selectActiveMessages);
   const { isLoading, userProfile } = useSelector((s) => s.chat);
   const [input, setInput] = useState("");
-  const bottomRef  = useRef(null);
+  const bottomRef = useRef(null);
 
   // Load profile once
   useEffect(() => {
@@ -98,21 +99,74 @@ const ChatBot = () => {
         <Card className="chat-card shadow-lg" style={{ backgroundColor: "#0d0616", color: "#fff", borderRadius: "20px", width: "100%", maxWidth: "850px", border: "1px solid #2c1a4b" }}>
           <Card.Body style={{ height: "500px", overflowY: "auto", padding: "20px" }}>
             {messages.map((msg) => (
-              <div key={msg.id} className={`d-flex mb-3 ${msg.sender === "user" ? "justify-content-end" : "justify-content-start"}`}>
-                {msg.sender === "bot" && (
-                  <div style={{ width: 40, height: 40, borderRadius: "50%", backgroundColor: "rgba(126,58,228,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Robot color="#a975ff" size={20} />
+              <div
+                key={msg.id}
+                className={`d-flex mb-3 flex-column ${msg.sender === "user" ? "align-items-end" : "align-items-start"
+                  }`}
+              >
+                {/* EXISTING MESSAGE ROW */}
+                <div
+                  className={`d-flex ${msg.sender === "user"
+                      ? "justify-content-end"
+                      : "justify-content-start"
+                    }`}
+                >
+                  {msg.sender === "bot" && (
+                    <div style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: "50%",
+                      backgroundColor: "rgba(126,58,228,0.2)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0
+                    }}>
+                      <Robot color="#a975ff" size={20} />
+                    </div>
+                  )}
+
+                  <div
+                    className="p-3 rounded-4 mx-2"
+                    style={{
+                      backgroundColor: msg.isError
+                        ? "rgba(200,50,50,0.2)"
+                        : msg.sender === "user"
+                          ? "#7e3ae4"
+                          : "rgba(60,40,80,0.9)",
+                      color: "#fff",
+                      maxWidth: "70%",
+                      whiteSpace: "pre-wrap",
+                      lineHeight: "1.6",
+                      fontSize: "14px",
+                    }}
+                  >
+                    {msg.text}
                   </div>
-                )}
-                <div className="p-3 rounded-4 mx-2" style={{
-                  backgroundColor: msg.isError ? "rgba(200,50,50,0.2)" : msg.sender === "user" ? "#7e3ae4" : "rgba(60,40,80,0.9)",
-                  color: "#fff", maxWidth: "70%", whiteSpace: "pre-wrap", lineHeight: "1.6", fontSize: "14px",
-                }}>
-                  {msg.text}
+
+                  {msg.sender === "user" && (
+                    <div style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: "50%",
+                      backgroundColor: "rgba(180,108,255,0.2)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0
+                    }}>
+                      <PersonFill color="#b46cff" size={20} />
+                    </div>
+                  )}
                 </div>
-                {msg.sender === "user" && (
-                  <div style={{ width: 40, height: 40, borderRadius: "50%", backgroundColor: "rgba(180,108,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <PersonFill color="#b46cff" size={20} />
+
+                {/* ✅ NEW VIDEO PANEL */}
+                {msg.sender === "bot" && msg.videos && (
+                  <div style={{ maxWidth: "70%", marginLeft: "52px" }}>
+                    <VideoPanel
+                      videos={msg.videos}
+                      videoMessage={msg.videoMessage}
+                    />
                   </div>
                 )}
               </div>

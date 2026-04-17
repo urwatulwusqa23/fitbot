@@ -7,6 +7,7 @@ import { sendMessage } from "../store/chatThunks";
 import { setUserProfile, createSession, selectActiveMessages, selectActiveSession } from "../store/chatSlice";
 import { api } from "../services/api";
 import Sidebar from "./Sidebar";
+import VideoPanel from "./VideoPanel";
 import "./EChatbot.css";
 
 // ── Typing indicator ──────────────────────────────────────────────────────────
@@ -32,9 +33,8 @@ const MessageBubble = ({ msg }) => {
         </div>
       )}
       <div
-        className={`echat-bubble ${isUser ? "user-bubble" : "bot-bubble"} ${
-          msg.isError ? "error-bubble" : ""
-        }`}
+        className={`echat-bubble ${isUser ? "user-bubble" : "bot-bubble"} ${msg.isError ? "error-bubble" : ""
+          }`}
       >
         <p style={{ margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
           {msg.text}
@@ -54,28 +54,28 @@ const MessageBubble = ({ msg }) => {
 
 // ── Suggestion chips ──────────────────────────────────────────────────────────
 const SUGGESTIONS = [
-  { label: "💪 3-Day Workout Split",   prompt: "Create a personalized 3-day workout split for me based on my profile." },
-  { label: "🥗 Weekly Diet Plan",      prompt: "Give me a full personalized weekly diet plan based on my health profile and target weight." },
-  { label: "📈 Progressive Overload",  prompt: "Explain progressive overload and how I should apply it to my level." },
-  { label: "🧘 Back Pain Yoga",        prompt: "Suggest a yoga routine specifically for back pain relief I can do at home." },
-  { label: "🔥 20-Min HIIT Cardio",    prompt: "Design a 20-minute HIIT cardio session for fat loss." },
-  { label: "🍗 High-Protein Meals",    prompt: "Suggest 5 high-protein meal ideas that fit my fitness goals." },
-  { label: "😴 Recovery Tips",         prompt: "What are the best recovery strategies to reduce muscle soreness?" },
-  { label: "⚖️ BMI Roadmap",           prompt: "Analyze my current BMI and give me a roadmap to reach my target weight." },
+  { label: "💪 3-Day Workout Split", prompt: "Create a personalized 3-day workout split for me based on my profile." },
+  { label: "🥗 Weekly Diet Plan", prompt: "Give me a full personalized weekly diet plan based on my health profile and target weight." },
+  { label: "📈 Progressive Overload", prompt: "Explain progressive overload and how I should apply it to my level." },
+  { label: "🧘 Back Pain Yoga", prompt: "Suggest a yoga routine specifically for back pain relief I can do at home." },
+  { label: "🔥 20-Min HIIT Cardio", prompt: "Design a 20-minute HIIT cardio session for fat loss." },
+  { label: "🍗 High-Protein Meals", prompt: "Suggest 5 high-protein meal ideas that fit my fitness goals." },
+  { label: "😴 Recovery Tips", prompt: "What are the best recovery strategies to reduce muscle soreness?" },
+  { label: "⚖️ BMI Roadmap", prompt: "Analyze my current BMI and give me a roadmap to reach my target weight." },
 ];
 
 // ── Main component ────────────────────────────────────────────────────────────
 const Echat = () => {
   const dispatch = useDispatch();
-  const messages     = useSelector(selectActiveMessages);
+  const messages = useSelector(selectActiveMessages);
   const activeSession = useSelector(selectActiveSession);
   const { isLoading, userProfile } = useSelector((s) => s.chat);
 
-  const [input, setInput]           = useState("");
+  const [input, setInput] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(260);
 
-  const bottomRef   = useRef(null);
+  const bottomRef = useRef(null);
   const textareaRef = useRef(null);
 
   // Load user profile once
@@ -197,8 +197,20 @@ const Echat = () => {
             {/* Messages */}
             <div className="messages-wrapper">
               {messages.map((msg) => (
-                <MessageBubble key={msg.id} msg={msg} />
+                <div key={msg.id}>
+                  <MessageBubble msg={msg} />
+
+                  {msg.sender === "bot" && msg.videos && (
+                    <div className="video-panel-echat-wrapper">
+                      <VideoPanel
+                        videos={msg.videos}
+                        videoMessage={msg.videoMessage}
+                      />
+                    </div>
+                  )}
+                </div>
               ))}
+
               {isLoading && <TypingIndicator />}
               <div ref={bottomRef} />
             </div>
