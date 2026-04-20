@@ -76,6 +76,14 @@ const NavBar = () => {
                         >
                             AI Assistant
                         </Nav.Link>
+                        <Nav.Link
+                            href="/analyze"
+                            style={{ color: "#fff", transition: "color 0.3s ease" }}
+                            onMouseEnter={(e) => (e.target.style.color = "#b46cff")}
+                            onMouseLeave={(e) => (e.target.style.color = "#fff")}
+                        >
+                            Exercise Analyzer
+                        </Nav.Link>
                         {/* Note: If BMICalculator is a component on the homepage, href="#bmi" is fine. 
                             If it's a separate page, change to href="/bmi" */}
                         <Nav.Link

@@ -1,4 +1,9 @@
 // src/App.js
+import "@tensorflow/tfjs";
+import "@tensorflow/tfjs-backend-webgl";
+import React from "react";
+import ReactDOM from "react-dom/client";
+
 import './App.css';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Provider } from 'react-redux';
@@ -26,7 +31,7 @@ import AdminDashboard from './admin/AdminDashboard';
 import AdminRoute from './admin/AdminRoute';
 
 // ── Route Guards ─────────────────────────────────────────────────────────────
-
+import ExerciseAnalyzer from './pages/ExerciseAnalyzer';
 /** Redirects unauthenticated users to /login */
 const PrivateRoute = ({ children }) => {
   const token = localStorage.getItem('token');
@@ -128,6 +133,16 @@ function App() {
         {/* Redirect /admin → /admin/dashboard */}
         <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
 
+        {/* ── EXERCISE ANALYZER ── */}      
+        <Route
+          path="/analyze"
+          element={
+            <PrivateRoute>
+              <NavBar />
+              <ExerciseAnalyzer />
+            </PrivateRoute>
+        }
+        />
         {/* ── 404 FALLBACK ── */}
         <Route path="*" element={<Navigate to="/" replace />} />
 

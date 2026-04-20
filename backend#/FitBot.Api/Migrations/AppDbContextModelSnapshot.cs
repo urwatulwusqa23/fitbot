@@ -80,6 +80,49 @@ namespace FitBot.Api.Migrations
                     b.ToTable("ChatHistory");
                 });
 
+            modelBuilder.Entity("FitBot.Api.Models.ReferenceMotion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ExerciseName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FramesDataJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("MotionPatternJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("TotalFramesProcessed")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("VideoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("VideoMetadataJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VideoId");
+
+                    b.ToTable("ReferenceMotions");
+                });
+
             modelBuilder.Entity("FitBot.Api.Models.StopWord", b =>
                 {
                     b.Property<int>("Id")
@@ -229,6 +272,45 @@ namespace FitBot.Api.Migrations
                     b.ToTable("Videos");
                 });
 
+            modelBuilder.Entity("FitBot.Api.Models.VideoMotionPattern", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ExerciseName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<double>("Fps")
+                        .HasColumnType("float");
+
+                    b.Property<string>("FramesJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("MotionPatternJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("ProcessedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("TotalFrames")
+                        .HasColumnType("int");
+
+                    b.Property<int>("VideoId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VideoId");
+
+                    b.ToTable("VideoMotionPatterns");
+                });
+
             modelBuilder.Entity("FitBot.Api.Models.BmiLog", b =>
                 {
                     b.HasOne("FitBot.Api.Models.User", "User")
@@ -251,6 +333,17 @@ namespace FitBot.Api.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("FitBot.Api.Models.ReferenceMotion", b =>
+                {
+                    b.HasOne("FitBot.Api.Models.Video", "Video")
+                        .WithMany()
+                        .HasForeignKey("VideoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Video");
+                });
+
             modelBuilder.Entity("FitBot.Api.Models.UserProfile", b =>
                 {
                     b.HasOne("FitBot.Api.Models.User", "User")
@@ -260,6 +353,17 @@ namespace FitBot.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("FitBot.Api.Models.VideoMotionPattern", b =>
+                {
+                    b.HasOne("FitBot.Api.Models.Video", "Video")
+                        .WithMany()
+                        .HasForeignKey("VideoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Video");
                 });
 
             modelBuilder.Entity("FitBot.Api.Models.User", b =>

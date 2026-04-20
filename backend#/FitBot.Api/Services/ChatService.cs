@@ -415,7 +415,34 @@ namespace FitBot.Api.Services
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly AppDbContext _context;
         private readonly ILogger<ChatService> _logger;
+        // Find your system prompt string and replace or add to it
+        private const string SystemPrompt = @"
+            You are FitBot AI, a professional fitness and health assistant.
 
+            ALWAYS format your responses using markdown:
+            - Use **bold** for exercise names and key terms
+            - Use bullet points for lists of exercises or tips
+            - Use numbered lists for step-by-step instructions  
+            - Use ### headings to separate sections when response is long
+            - Keep responses clear and structured — never a wall of plain text
+            - End with an encouraging line
+
+            Example format:
+            ### Shoulder Workout Plan
+
+            Here are the best exercises for your shoulders:
+
+            - **Lateral Raises** — targets side deltoids
+            - **Overhead Press** — builds overall mass
+            - **Front Raises** — isolates front deltoid
+
+            **Key tips:**
+            1. Start light, focus on form
+            2. Keep core tight throughout
+            3. Control the negative movement
+
+            You've got this! Consistency is everything. 💪
+            ";
         public ChatService(
             IConfiguration config,
             IHttpClientFactory httpClientFactory,
@@ -512,16 +539,23 @@ namespace FitBot.Api.Services
                 };
 
                 // Using Gemini 1.5 Flash for speed and efficiency
-                var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={apiKey}";
-
+                var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={apiKey}";
+                //var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={apiKey}";
                 var response = await client.PostAsync(url,
                     new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"));
 
                 var responseText = await response.Content.ReadAsStringAsync();
 
+                //if (!response.IsSuccessStatusCode)
+                //{
+                //    _logger.LogError("Gemini API Error {Status}: {Body}", response.StatusCode, responseText);
+                //    return null;
+                //}
+                //checking
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogError("Gemini API Error {Status}: {Body}", response.StatusCode, responseText);
+                    var error = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("Gemini API FAILED: {Status} {Error}", response.StatusCode, error);
                     return null;
                 }
 

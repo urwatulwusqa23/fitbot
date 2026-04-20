@@ -14,7 +14,8 @@ namespace FitBot.Api.Data
         public DbSet<Video> Videos { get; set; }
         public DbSet<Synonym> Synonyms { get; set; }
         public DbSet<StopWord> StopWords { get; set; }
-
+        public DbSet<ReferenceMotion> ReferenceMotions { get; set; }
+        public DbSet<VideoMotionPattern> VideoMotionPatterns { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<User>()

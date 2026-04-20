@@ -19,6 +19,8 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IChatService, ChatService>();  
 builder.Services.AddScoped<IVideoService, VideoService>();
+builder.Services.AddScoped<IPoseService, PoseService>();
+builder.Services.AddScoped<IMotionService, MotionService>();
 
 // ── HttpClient for AI API calls ────────────────────────────────────────────
 builder.Services.AddHttpClient();                          // <-- ADD THIS

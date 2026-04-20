@@ -6,6 +6,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { sendMessage } from "../store/chatThunks";
 import { setUserProfile, createSession, selectActiveMessages, selectActiveSession } from "../store/chatSlice";
 import { api } from "../services/api";
+import FormattedMessage from "./FormattedMessage";
 import Sidebar from "./Sidebar";
 import VideoPanel from "./VideoPanel";
 import "./EChatbot.css";
@@ -33,12 +34,15 @@ const MessageBubble = ({ msg }) => {
         </div>
       )}
       <div
-        className={`echat-bubble ${isUser ? "user-bubble" : "bot-bubble"} ${msg.isError ? "error-bubble" : ""
-          }`}
-      >
-        <p style={{ margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
-          {msg.text}
-        </p>
+        className={`echat-bubble ${isUser ? "user-bubble" : "bot-bubble"} ${msg.isError ? "error-bubble" : ""}`}
+        >
+        {isUser ? (
+          <p style={{ margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
+            {msg.text}
+          </p>
+        ) : (
+          <FormattedMessage text={msg.text} />
+        )}
         {msg.source && msg.source !== "ai" && msg.source !== "openai" && (
           <span className="source-tag">via {msg.source}</span>
         )}

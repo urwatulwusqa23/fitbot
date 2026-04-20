@@ -8,6 +8,7 @@ import { sendMessage } from "../store/chatThunks";
 import { setUserProfile, createSession, selectActiveMessages } from "../store/chatSlice";
 import { api } from "../services/api";
 import VideoPanel from "./VideoPanel";
+import FormattedMessage from "./FormattedMessage";
 import "./ChatBot.css";
 
 const TypingIndicator = () => (
@@ -136,12 +137,15 @@ const ChatBot = () => {
                           : "rgba(60,40,80,0.9)",
                       color: "#fff",
                       maxWidth: "70%",
-                      whiteSpace: "pre-wrap",
                       lineHeight: "1.6",
                       fontSize: "14px",
                     }}
                   >
-                    {msg.text}
+                    {msg.sender === "user" ? (
+                      <span style={{ whiteSpace: "pre-wrap" }}>{msg.text}</span>
+                    ) : (
+                      <FormattedMessage text={msg.text} />
+                    )}
                   </div>
 
                   {msg.sender === "user" && (
