@@ -1,3 +1,4 @@
+// Models/User.cs
 using System.Text.Json.Serialization;
 
 namespace FitBot.Api.Models
@@ -11,12 +12,29 @@ namespace FitBot.Api.Models
         public string Role { get; set; } = "User";
         public string? PasswordResetToken { get; set; }
         public DateTime? PasswordResetTokenExpiresAt { get; set; }
+
         [JsonIgnore]
         public UserProfile? Profile { get; set; }
+
         [JsonIgnore]
-        public List<ChatMessage> ChatHistory { get; set; } = new List<ChatMessage>();
+        public List<ChatMessage> ChatHistory { get; set; } = new();
+
         [JsonIgnore]
-        public List<BmiLog> BmiLogs { get; set; } = new List<BmiLog>(); // <--- Add this
-    
+        public List<BmiLog> BmiLogs { get; set; } = new();
+
+        [JsonIgnore]
+        public List<ChatHistory> ChatHistories { get; set; } = new();
+
+        [JsonIgnore]
+        public List<DeepMemory> DeepMemories { get; set; } = new();
+
+        [JsonIgnore]
+        public List<DietPlan> DietPlans { get; set; } = new();
+
+        [JsonIgnore]
+        public List<ExercisePlan> ExercisePlans { get; set; } = new();
+
+        [JsonIgnore]
+        public List<LikedVideo> LikedVideos { get; set; } = new();
     }
 }

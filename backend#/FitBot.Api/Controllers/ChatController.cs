@@ -7,9 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using System.Text.Json;
-using FitBot.Api.DTOs;
 using FitBot.Api.Services;
-using Microsoft.AspNetCore.Mvc;
 
 namespace FitBot.Api.Controllers
 {

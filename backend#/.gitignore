@@ -9,3 +9,4 @@ obj/
 
 # Logs
 *.log
+appsettings.json
