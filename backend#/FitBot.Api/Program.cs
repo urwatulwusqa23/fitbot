@@ -25,6 +25,8 @@ builder.Services.AddScoped<IMotionService, MotionService>();
 
 builder.Services.AddHostedService<VideoDiscoveryJob>();
 
+
+
 // HttpClient
 builder.Services.AddHttpClient();
 
