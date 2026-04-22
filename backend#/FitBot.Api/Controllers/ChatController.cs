@@ -162,7 +162,7 @@ namespace FitBot.Api.Controllers
             return Ok(new { message = "Diet plan saved!" });
         }
 
-        // ── Get diet plans ────────────────────────────────────────────────────
+        // ── Get diet plans ────────────────────────────────────────────────────────
         [HttpGet("diet-plans")]
         [Authorize]
         public async Task<IActionResult> GetDietPlans()
@@ -173,7 +173,14 @@ namespace FitBot.Api.Controllers
             var plans = await _db.DietPlans
                 .Where(p => p.UserId == user.Id)
                 .OrderByDescending(p => p.CreatedAt)
-                .Select(p => new { p.Id, p.Title, p.PlanType, p.CreatedAt, p.IsActive })
+                .Select(p => new {
+                    p.Id,
+                    p.Title,
+                    p.PlanType,
+                    p.PlanJson,      // ← ADD THIS
+                    p.CreatedAt,
+                    p.IsActive
+                })
                 .ToListAsync();
             return Ok(plans);
         }
@@ -197,7 +204,7 @@ namespace FitBot.Api.Controllers
             return Ok(new { message = "Exercise plan saved!" });
         }
 
-        // ── Get exercise plans ────────────────────────────────────────────────
+        // ── Get exercise plans ────────────────────────────────────────────────────
         [HttpGet("exercise-plans")]
         [Authorize]
         public async Task<IActionResult> GetExercisePlans()
@@ -208,7 +215,14 @@ namespace FitBot.Api.Controllers
             var plans = await _db.ExercisePlans
                 .Where(p => p.UserId == user.Id)
                 .OrderByDescending(p => p.CreatedAt)
-                .Select(p => new { p.Id, p.Title, p.SplitType, p.CreatedAt, p.IsActive })
+                .Select(p => new {
+                    p.Id,
+                    p.Title,
+                    p.SplitType,
+                    p.PlanJson,      // ← ADD THIS
+                    p.CreatedAt,
+                    p.IsActive
+                })
                 .ToListAsync();
             return Ok(plans);
         }

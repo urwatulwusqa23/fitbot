@@ -1,9 +1,6 @@
-// src/App.js
 import "@tensorflow/tfjs";
 import "@tensorflow/tfjs-backend-webgl";
 import React from "react";
-import ReactDOM from "react-dom/client";
-
 import './App.css';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Provider } from 'react-redux';
@@ -19,6 +16,7 @@ import Echat from './components/Echat';
 import Profile from './components/Profile';
 import ProfileSetup from './components/ProfileSetup';
 import SetupProfile from './components/SetupProfile';
+import SavedPlans from './pages/SavedPlans';   // ← NEW
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 import Login from './auth/login';
@@ -30,125 +28,87 @@ import AdminLogin from './admin/AdminLogin';
 import AdminDashboard from './admin/AdminDashboard';
 import AdminRoute from './admin/AdminRoute';
 
-// ── Route Guards ─────────────────────────────────────────────────────────────
+// ── Pages ────────────────────────────────────────────────────────────────────
 import ExerciseAnalyzer from './pages/ExerciseAnalyzer';
-/** Redirects unauthenticated users to /login */
+
+// ── Route Guards ─────────────────────────────────────────────────────────────
 const PrivateRoute = ({ children }) => {
-  const token = localStorage.getItem('token');
-  return token ? children : <Navigate to="/login" replace />;
+    const token = localStorage.getItem('token');
+    return token ? children : <Navigate to="/login" replace />;
 };
 
-/** Redirects logged-in users away from auth pages */
 const PublicOnlyRoute = ({ children }) => {
-  const token = localStorage.getItem('token');
-  return token ? <Navigate to="/" replace /> : children;
+    const token = localStorage.getItem('token');
+    return token ? <Navigate to="/" replace /> : children;
 };
 
 // ── Dashboard Layout ─────────────────────────────────────────────────────────
 const Dashboard = () => (
-  <>
-    <NavBar />
-    <Intro />
-    <ChatBot />
-    <BMICalculator />
-    <Footer />
-  </>
+    <>
+        <NavBar />
+        <Intro />
+        <ChatBot />
+        <BMICalculator />
+        <Footer />
+    </>
 );
 
 // ── App ───────────────────────────────────────────────────────────────────────
 function App() {
-  return (
-    <Provider store={store}>
-      <Routes>
+    return (
+        <Provider store={store}>
+            <Routes>
 
-        {/* ── PUBLIC AUTH ROUTES ── */}
-        <Route
-          path="/login"
-          element={
-            <PublicOnlyRoute>
-              <Login />
-            </PublicOnlyRoute>
-          }
-        />
-        <Route
-          path="/signup"
-          element={
-            <PublicOnlyRoute>
-              <Signup />
-            </PublicOnlyRoute>
-          }
-        />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
+                {/* ── PUBLIC AUTH ROUTES ── */}
+                <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
+                <Route path="/signup" element={<PublicOnlyRoute><Signup /></PublicOnlyRoute>} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
 
-        {/* ── ONBOARDING (semi-public — needs JWT token) ── */}
-        <Route path="/setup-profile" element={<SetupProfile />} />
+                {/* ── ONBOARDING ── */}
+                <Route path="/setup-profile" element={<SetupProfile />} />
 
-        {/* ── PROTECTED USER ROUTES ── */}
-        <Route
-          path="/"
-          element={
-            <PrivateRoute>
-              <Dashboard />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/echatbot"
-          element={
-            <PrivateRoute>
-              <NavBar />
-              <Echat />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <PrivateRoute>
-              <NavBar />
-              <Profile />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/profile-setup"
-          element={
-            <PrivateRoute>
-              <NavBar />
-              <ProfileSetup />
-            </PrivateRoute>
-          }
-        />
+                {/* ── PROTECTED USER ROUTES ── */}
+                <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
 
-        {/* ── ADMIN ROUTES ── */}
-        <Route path="/admin/login" element={<AdminLogin />} />
-        <Route
-          path="/admin/dashboard"
-          element={
-            <AdminRoute>
-              <AdminDashboard />
-            </AdminRoute>
-          }
-        />
-        {/* Redirect /admin → /admin/dashboard */}
-        <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+                <Route
+                    path="/echatbot"
+                    element={<PrivateRoute><NavBar /><Echat /></PrivateRoute>}
+                />
+                <Route
+                    path="/profile"
+                    element={<PrivateRoute><NavBar /><Profile /></PrivateRoute>}
+                />
+                <Route
+                    path="/profile-setup"
+                    element={<PrivateRoute><NavBar /><ProfileSetup /></PrivateRoute>}
+                />
 
-        {/* ── EXERCISE ANALYZER ── */}      
-        <Route
-          path="/analyze"
-          element={
-            <PrivateRoute>
-              <NavBar />
-              <ExerciseAnalyzer />
-            </PrivateRoute>
-        }
-        />
-        {/* ── 404 FALLBACK ── */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+                {/* ── SAVED PLANS PAGE ── */}
+                <Route
+                    path="/saved"
+                    element={<PrivateRoute><SavedPlans /></PrivateRoute>}
+                />
 
-      </Routes>
-    </Provider>
-  );
+                {/* ── ADMIN ROUTES ── */}
+                <Route path="/admin/login" element={<AdminLogin />} />
+                <Route
+                    path="/admin/dashboard"
+                    element={<AdminRoute><AdminDashboard /></AdminRoute>}
+                />
+                <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+
+                {/* ── EXERCISE ANALYZER ── */}
+                <Route
+                    path="/analyze"
+                    element={<PrivateRoute><NavBar /><ExerciseAnalyzer /></PrivateRoute>}
+                />
+
+                {/* ── 404 ── */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+
+            </Routes>
+        </Provider>
+    );
 }
 
 export default App;
