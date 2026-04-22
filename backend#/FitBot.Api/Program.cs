@@ -23,19 +23,32 @@ builder.Services.AddScoped<IVideoService, VideoService>();
 builder.Services.AddScoped<IPoseService, PoseService>();
 builder.Services.AddScoped<IMotionService, MotionService>();
 
+builder.Services.AddHostedService<VideoDiscoveryJob>();
+
 // HttpClient
 builder.Services.AddHttpClient();
 
 // CORS (IMPORTANT FIXED)
+//builder.Services.AddCors(options =>
+//{
+//    options.AddPolicy("AllowReactApp", policy =>
+//    {
+//        policy
+//            .AllowAnyHeader()
+//            .AllowAnyMethod()
+//            .AllowCredentials()
+//            .SetIsOriginAllowed(_ => true); // allows localhost + any dev origin
+//    });
+//});
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
         policy
+            .WithOrigins("http://localhost:3000") // Be explicit about your frontend
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .AllowCredentials()
-            .SetIsOriginAllowed(_ => true); // allows localhost + any dev origin
+            .AllowCredentials();
     });
 });
 
@@ -62,7 +75,9 @@ if (app.Environment.IsDevelopment())
 }
 
 // ❌ IMPORTANT FIX: REMOVE HTTPS REDIRECT (causes your shutdown issue)
-app.UseHttpsRedirection(); // ❌ you can comment this out
+//app.UseHttpsRedirection(); // ❌ you can comment this out
+
+app.UseRouting();
 
 app.UseCors("AllowReactApp");
 

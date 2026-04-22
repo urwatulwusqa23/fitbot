@@ -1,15 +1,22 @@
 // src/components/pose/VideoSelector.jsx
 import { useEffect, useState } from "react";
+import { api } from "../../services/api";
 
 export default function VideoSelector({ onSelect }) {
-  const [videos,  setVideos]  = useState([]);
+  const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState(null);
-  const [search,  setSearch]  = useState("");
+  const [error, setError] = useState(null);
+  const [search, setSearch] = useState("");
+
+  // useEffect(() => {
+  //   fetch("http://localhost:5076/api/video")
+  //     .then(r => r.json())
+  //     .then(data => { setVideos(data); setLoading(false); })
+  //     .catch(() => { setError("Failed to load exercises."); setLoading(false); });
+  // }, []);
 
   useEffect(() => {
-    fetch("/api/video")
-      .then(r => r.json())
+    api.getVideos()
       .then(data => { setVideos(data); setLoading(false); })
       .catch(() => { setError("Failed to load exercises."); setLoading(false); });
   }, []);
@@ -20,7 +27,7 @@ export default function VideoSelector({ onSelect }) {
   );
 
   if (loading) return <p>Loading exercises...</p>;
-  if (error)   return <p style={{ color: "red" }}>{error}</p>;
+  if (error) return <p style={{ color: "red" }}>{error}</p>;
 
   return (
     <div>

@@ -1,16 +1,44 @@
 // src/components/VideoPanel.js
 import React, { useState } from "react";
-import { HeartFill, Heart } from "react-bootstrap-icons";
+import { HeartFill, Heart, PlayFill, ArrowsAngleExpand, PersonBoundingBox } from "react-bootstrap-icons";
 import { api } from "../services/api";
+import "./VideoPanel.css";
 
-const VideoPanel = ({ videos, videoMessage }) => {
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+const getYouTubeId = (url) => {
+    if (!url) return null;
+    const match = url.match(/(?:v=|youtu\.be\/)([^#&?]{11})/);
+    return match ? match[1] : null;
+};
+
+const resolveVideoId = (video) =>
+    video.videoId || video.id || video.youtubeId || String(Math.random());
+
+const resolveYouTubeUrl = (video, videoId) =>
+    video.url ||
+    video.youtubeUrl ||
+    video.link ||
+    `https://youtube.com/watch?v=${videoId}`;
+
+const resolveThumbnail = (video, ytId) => {
+    if (video.thumbnail || video.thumbnailUrl) return video.thumbnail || video.thumbnailUrl;
+    if (ytId) return `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`;
+    return "";
+};
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+const VideoPanel = ({ videos, videoMessage, onPoseDetect }) => {
+    const [activeYtId, setActiveYtId] = useState(null); // currently playing embed
     const [likedIds, setLikedIds] = useState({});
     const [likeErrors, setLikeErrors] = useState({});
 
     if (!videos || videos.length === 0) return null;
 
+    // ── Like handler ──────────────────────────────────────────────────────────
     const handleLike = async (video) => {
-        const videoId = video.videoId || video.id || video.youtubeId || "";
+        const videoId = resolveVideoId(video);
         if (!videoId) return;
 
         try {
@@ -18,10 +46,7 @@ const VideoPanel = ({ videos, videoMessage }) => {
                 videoId,
                 title: video.title || "Untitled",
                 thumbnailUrl: video.thumbnail || video.thumbnailUrl || "",
-                youtubeUrl:
-                    video.url ||
-                    video.youtubeUrl ||
-                    `https://youtube.com/watch?v=${videoId}`,
+                youtubeUrl: resolveYouTubeUrl(video, videoId),
             });
             setLikedIds((prev) => ({ ...prev, [videoId]: result.liked !== false }));
             setLikeErrors((prev) => ({ ...prev, [videoId]: false }));
@@ -32,95 +57,112 @@ const VideoPanel = ({ videos, videoMessage }) => {
     };
 
     return (
-        <div style={{ marginTop: "10px" }}>
+        <div className="video-panel">
             {videoMessage && (
-                <p style={{ fontSize: "13px", color: "#b46cff", marginBottom: "8px" }}>
-                    {videoMessage}
-                </p>
+                <p className="video-panel-title">{videoMessage}</p>
             )}
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+
+            {/* ── Inline YouTube Player ── */}
+            {activeYtId && (
+                <div className="video-player-wrapper">
+                    <iframe
+                        width="100%"
+                        height="100%"
+                        src={`https://www.youtube.com/embed/${activeYtId}?autoplay=1`}
+                        title="Exercise video"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                    />
+                </div>
+            )}
+
+            {/* ── Video Cards ── */}
+            <div className="video-cards-row">
                 {videos.map((video) => {
-                    const videoId =
-                        video.videoId ||
-                        video.id ||
-                        video.youtubeId ||
-                        String(Math.random());
+                    const videoId = resolveVideoId(video);
+                    const ytId = getYouTubeId(resolveYouTubeUrl(video, videoId));
+                    const isPlaying = activeYtId === ytId;
                     const isLiked = likedIds[videoId];
                     const hasError = likeErrors[videoId];
-                    const videoUrl =
-                        video.url ||
-                        video.youtubeUrl ||
-                        `https://youtube.com/watch?v=${videoId}`;
-                    const thumbUrl =
-                        video.thumbnail || video.thumbnailUrl || "";
+                    const thumbUrl = resolveThumbnail(video, ytId);
+                    const youtubeUrl = resolveYouTubeUrl(video, videoId);
 
                     return (
                         <div
                             key={videoId}
-                            style={{
-                                width: "200px",
-                                borderRadius: "10px",
-                                overflow: "hidden",
-                                backgroundColor: "rgba(60,40,80,0.8)",
-                                border: "1px solid #2c1a4b",
-                                position: "relative",
-                                flexShrink: 0,
-                            }}
+                            className={`video-card ${isPlaying ? "video-card--active" : ""}`}
                         >
-                            <a href={videoUrl} target="_blank" rel="noreferrer">
-                                <img
-                                    src={thumbUrl}
-                                    alt={video.title || "Video"}
-                                    style={{ width: "100%", height: "110px", objectFit: "cover" }}
-                                    onError={(e) => {
-                                        e.target.style.display = "none";
-                                    }}
-                                />
-                            </a>
+                            {/* Thumbnail with play overlay */}
+                            <div
+                                className="video-thumb"
+                                onClick={() => ytId && setActiveYtId(isPlaying ? null : ytId)}
+                            >
+                                {thumbUrl && (
+                                    <img
+                                        src={thumbUrl}
+                                        alt={video.title || "Video"}
+                                        loading="lazy"
+                                        onError={(e) => { e.target.style.display = "none"; }}
+                                    />
+                                )}
+                                <div className="video-thumb-overlay">
+                                    <PlayFill size={28} color="#fff" />
+                                </div>
 
-                            <div style={{ padding: "8px" }}>
-                                <p
-                                    style={{
-                                        fontSize: "12px",
-                                        color: "#ddd",
-                                        margin: 0,
-                                        lineHeight: 1.4,
-                                    }}
+                                {/* ❤ Like button — top-right of thumbnail */}
+                                <button
+                                    className="btn-like"
+                                    onClick={(e) => { e.stopPropagation(); handleLike(video); }}
+                                    title={hasError ? "Login required to like" : isLiked ? "Unlike" : "Like"}
                                 >
-                                    {(video.title || "").slice(0, 60)}
-                                </p>
+                                    {isLiked
+                                        ? <HeartFill size={13} color="#e74c3c" />
+                                        : <Heart size={13} color={hasError ? "#e74c3c" : "#fff"} />
+                                    }
+                                </button>
                             </div>
 
-                            <button
-                                onClick={() => handleLike(video)}
-                                title={
-                                    hasError
-                                        ? "Login required to like"
-                                        : isLiked
-                                            ? "Unlike"
-                                            : "Like"
-                                }
-                                style={{
-                                    position: "absolute",
-                                    top: "6px",
-                                    right: "6px",
-                                    background: "rgba(0,0,0,0.55)",
-                                    border: "none",
-                                    borderRadius: "50%",
-                                    padding: "5px",
-                                    cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    outline: "none",
-                                }}
-                            >
-                                {isLiked ? (
-                                    <HeartFill size={14} color="#e74c3c" />
-                                ) : (
-                                    <Heart size={14} color={hasError ? "#e74c3c" : "#fff"} />
-                                )}
-                            </button>
+                            {/* Card body */}
+                            <div className="video-card-body">
+                                <p className="video-card-title">
+                                    {(video.title || "").slice(0, 60)}
+                                </p>
+
+                                <div className="video-card-actions">
+                                    {/* Play inline / Close */}
+                                    {ytId && (
+                                        <button
+                                            className={`btn-play-inline ${isPlaying ? "btn-play-inline--stop" : ""}`}
+                                            onClick={() => setActiveYtId(isPlaying ? null : ytId)}
+                                        >
+                                            {isPlaying ? "Close" : "Play here"}
+                                        </button>
+                                    )}
+
+                                    {/* Open on YouTube */}
+                                    <a
+                                        href={youtubeUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="btn-open-yt"
+                                    >
+                                        <ArrowsAngleExpand size={11} />
+                                        YouTube
+                                    </a>
+
+                                    {/* Pose Detection (optional — only shown if handler provided) */}
+                                    {onPoseDetect && (
+                                        <button
+                                            className="btn-pose"
+                                            onClick={() => onPoseDetect(video)}
+                                            title="Pose Detection"
+                                        >
+                                            <PersonBoundingBox size={13} />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     );
                 })}

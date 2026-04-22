@@ -53,7 +53,7 @@ const ChatBot = () => {
     };
 
     return (
-        <section style={{ paddingTop: "60px", backgroundColor: "#0e0413ff", color: "#fff", minHeight: "100vh" }}>
+        <section id="chatbot" style={{ paddingTop: "60px", backgroundColor: "#0e0413ff", color: "#fff", minHeight: "100vh" }}>
             <div className="container text-center mb-4">
                 <h1 style={{ fontWeight: 700, fontSize: "3.5rem" }}>
                     AI{" "}

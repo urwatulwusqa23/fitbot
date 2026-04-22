@@ -71,14 +71,31 @@ export const api = {
         return response.json();
     },
 
+    // getProfile: async () => {
+    //     const token = localStorage.getItem("token");
+    //     const response = await fetch(`${API_URL}/profile/me`, {
+    //         headers: { Authorization: `Bearer ${token}` },
+    //     });
+    //     if (response.status === 404) return null;
+    //     if (!response.ok) throw new Error("Failed to fetch profile");
+    //     return response.json();
+    // },
+
     getProfile: async () => {
         const token = localStorage.getItem("token");
-        const response = await fetch(`${API_URL}/profile/me`, {
-            headers: { Authorization: `Bearer ${token}` },
-        });
-        if (response.status === 404) return null;
-        if (!response.ok) throw new Error("Failed to fetch profile");
-        return response.json();
+        if (!token) return null; // Don't even fetch if there's no token
+
+        try {
+            const response = await fetch(`${API_URL}/profile/me`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (response.status === 404) return null;
+            if (!response.ok) return null;
+            return await response.json();
+        } catch (error) {
+            console.error("Profile fetch failed", error);
+            return null;
+        }
     },
 
     getBmiLogs: async () => {
@@ -361,4 +378,6 @@ export const api = {
         });
         return response.json();
     },
+
+    
 };

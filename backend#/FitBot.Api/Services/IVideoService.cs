@@ -18,5 +18,7 @@ namespace FitBot.Api.Services
         Task<StopWordResponseDto> SaveStopWordAsync(StopWordDto dto);
         Task<bool> DeleteStopWordAsync(int id);
         Task SeedTagsAsync();
+
+        Task AutoDiscoverVideosAsync(string topic);
     }
 }

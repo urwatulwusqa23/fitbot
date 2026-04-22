@@ -52,7 +52,7 @@ namespace FitBot.Api.Controllers
 
                 // Use VideoId = 0 for user-uploaded references (no DB video record)
                 // or pass a real VideoId if you create a Video record first
-                var videoId = 0;
+                var videoId = Math.Abs(dto.ExerciseName.GetHashCode() ^ fileName.GetHashCode()); ;
 
                 var result = await _poseService.ProcessReferenceVideoAsync(
                     videoId: videoId,
