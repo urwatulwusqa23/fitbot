@@ -1,8 +1,7 @@
 import React from "react";
 import { Navbar, Nav, Container, Dropdown } from "react-bootstrap";
 import { FaDumbbell, FaUser } from "react-icons/fa";
-import { useNavigate } from 'react-router-dom';
-
+import { useNavigate,Link } from 'react-router-dom';
 const NavBar = () => {
     const navigate = useNavigate();
 
@@ -63,7 +62,8 @@ const NavBar = () => {
                         }}
                     >
                         <Nav.Link
-                            href="/"
+                            as={Link}    // Change this
+                            to="/"       // Change href to to
                             style={linkStyle}
                             onMouseEnter={hoverOn}
                             onMouseLeave={hoverOff}
@@ -90,6 +90,14 @@ const NavBar = () => {
                         </Nav.Link>
 
                         <Nav.Link
+                            onClick={(e) => {
+                                e.preventDefault();
+                                if (window.location.pathname !== '/') {
+                                    window.location.href = '/#bmi';
+                                } else {
+                                    document.getElementById('bmi')?.scrollIntoView({ behavior: 'smooth' });
+                                }
+                            }}
                             href="#bmi"
                             style={linkStyle}
                             onMouseEnter={hoverOn}
@@ -97,7 +105,6 @@ const NavBar = () => {
                         >
                             BMI Calculator
                         </Nav.Link>
-
                         {/* ✅ NEW — Saved Plans link */}
                         <Nav.Link
                             href="/saved"

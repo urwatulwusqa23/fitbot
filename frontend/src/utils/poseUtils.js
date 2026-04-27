@@ -56,14 +56,273 @@ const WEIGHTS = {
 };
 
 // ── Core math ────────────────────────────────────────────────────────────────
+// ── ENHANCED: Dot product angle (replaces atan2 — clean 0-180°, no wraparound) ──
 export function computeAngle(a, b, c) {
+  // Vector from vertex b to point a
   const ba = { x: a.x - b.x, y: a.y - b.y };
+  // Vector from vertex b to point c
   const bc = { x: c.x - b.x, y: c.y - b.y };
-  const dot    = ba.x * bc.x + ba.y * bc.y;
-  const magBA  = Math.sqrt(ba.x ** 2 + ba.y ** 2);
-  const magBC  = Math.sqrt(bc.x ** 2 + bc.y ** 2);
+
+  // Dot product
+  const dot = ba.x * bc.x + ba.y * bc.y;
+
+  // Magnitudes
+  const magBA = Math.sqrt(ba.x ** 2 + ba.y ** 2);
+  const magBC = Math.sqrt(bc.x ** 2 + bc.y ** 2);
+
+  // Clamp to [-1, 1] to prevent NaN from floating point errors
   const cosine = dot / (magBA * magBC + 1e-6);
-  return (Math.acos(Math.max(-1, Math.min(1, cosine))) * 180) / Math.PI;
+  const clamped = Math.max(-1.0, Math.min(1.0, cosine));
+
+  // Returns 0-180° — no wraparound, no false rep triggers
+  return (Math.acos(clamped) * 180) / Math.PI;
+}
+
+// ── ENHANCED: Hysteresis rep counter — works for ANY exercise joint ──────────
+// Hysteresis means two separate thresholds for up/down
+// This prevents false triggers when angle hovers near one threshold
+export function createRepCounter(
+  angleName,
+  upThreshold   = 150,  // angle > 150° = fully extended (DOWN position)
+  downThreshold = 90    // angle < 90°  = fully contracted (UP position)
+) {
+  let stage       = "down";  // current stage: "up" | "down"
+  let reps        = 0;
+  let lastAngle   = null;
+  let frameCount  = 0;       // frames in current stage (for speed detection)
+  let stageFrames = 0;       // total frames to complete one rep phase
+
+  return function tick(angles) {
+    const angle = angles[angleName];
+    if (angle === undefined || angle === null) return { reps, stage, speed: "unknown" };
+
+    frameCount++;
+
+    // Stage transition with hysteresis
+    // Only transition when clearly past threshold — prevents bouncing
+    if (angle < downThreshold && stage === "down") {
+      // Contracted position reached — this is the UP phase of a curl
+      stage       = "up";
+      stageFrames = frameCount;
+      frameCount  = 0;
+    }
+
+    if (angle > upThreshold && stage === "up") {
+      // Extended position reached — rep complete
+      stage = "down";
+      reps++;
+
+      // Speed quality based on how many frames the rep took
+      // At 30fps: good rep = 20-60 frames (0.7-2s)
+      const repFrames = stageFrames + frameCount;
+      let speed;
+      if      (repFrames < 15) speed = "Too Fast";   // < 0.5s per rep
+      else if (repFrames > 90) speed = "Too Slow";   // > 3s per rep
+      else                     speed = "Good Form";
+
+      frameCount  = 0;
+      stageFrames = 0;
+      lastAngle   = angle;
+
+      return { reps, stage, speed };
+    }
+
+    lastAngle = angle;
+    return { reps, stage, speed: "Good Form" };
+  };
+}
+
+// ── NEW: Calorie estimator ────────────────────────────────────────────────────
+// Based on MET (Metabolic Equivalent of Task) values for exercise
+// Formula: Calories = MET × weight(kg) × time(hours)
+export function createCalorieEstimator(weightKg = 70) {
+  const MET_VALUES = {
+    upper_body: 4.0,   // resistance training — upper body
+    lower_body: 5.0,   // resistance training — lower body (more muscle mass)
+    full_body:  5.5,   // full body compound movements
+    unknown:    4.5,   // default
+  };
+
+  let totalCalories = 0;
+  let startTime     = null;
+
+  return {
+    start() {
+      startTime = Date.now();
+    },
+
+    update(exerciseType = "unknown") {
+      if (!startTime) return 0;
+      const elapsedHours = (Date.now() - startTime) / 3600000;
+      const met          = MET_VALUES[exerciseType] ?? 4.5;
+      totalCalories      = met * weightKg * elapsedHours;
+      return Math.round(totalCalories * 10) / 10; // one decimal place
+    },
+
+    reset() {
+      totalCalories = 0;
+      startTime     = Date.now();
+    },
+
+    getTotal() {
+      return Math.round(totalCalories * 10) / 10;
+    }
+  };
+}
+
+// ── NEW: Rest timer ───────────────────────────────────────────────────────────
+// Triggers automatically after each set (configurable reps per set)
+export function createRestTimer(repsPerSet = 10, restSeconds = 60) {
+  let lastSetReps   = 0;
+  let resting       = false;
+  let restStartTime = null;
+  let setCount      = 0;
+
+  return {
+    update(currentReps) {
+      // Check if a new set just completed
+      if (currentReps > 0 && currentReps % repsPerSet === 0 && currentReps !== lastSetReps) {
+        lastSetReps   = currentReps;
+        resting       = true;
+        restStartTime = Date.now();
+        setCount++;
+        return { resting: true, secondsLeft: restSeconds, setCount };
+      }
+
+      if (resting && restStartTime) {
+        const elapsed     = (Date.now() - restStartTime) / 1000;
+        const secondsLeft = Math.max(0, Math.ceil(restSeconds - elapsed));
+        if (secondsLeft === 0) {
+          resting       = false;
+          restStartTime = null;
+        }
+        return { resting: secondsLeft > 0, secondsLeft, setCount };
+      }
+
+      return { resting: false, secondsLeft: 0, setCount };
+    },
+
+    isResting() { return resting; },
+    getSetCount() { return setCount; }
+  };
+}
+
+// ── ENHANCED: HUD drawing — replaces plain skeleton for webcam ────────────────
+export function drawHUD(ctx, keypointMap, differences, repData, calories, restTimer, score) {
+  const W = ctx.canvas.width;
+  const H = ctx.canvas.height;
+
+  // ── 1. Draw skeleton with color-coded joints ──
+  drawSkeleton(ctx, keypointMap, differences);
+
+  // ── 2. Top-left stats panel ──
+  const panelW = 180;
+  const panelH = restTimer?.resting ? 200 : 160;
+
+  // Rounded panel background
+  ctx.save();
+  ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+  roundRect(ctx, 12, 12, panelW, panelH, 10);
+  ctx.fill();
+  ctx.restore();
+
+  // Score bar (vertical, left side of panel)
+  const barH      = panelH - 24;
+  const barFill   = (score / 100) * barH;
+  const barColor  = score >= 80 ? "#44ff44" : score >= 50 ? "#ffaa00" : "#ff4444";
+
+  ctx.save();
+  ctx.fillStyle = "rgba(255,255,255,0.15)";
+  roundRect(ctx, 20, 20, 12, barH, 6);
+  ctx.fill();
+  ctx.fillStyle = barColor;
+  roundRect(ctx, 20, 20 + (barH - barFill), 12, barFill, 6);
+  ctx.fill();
+  ctx.restore();
+
+  // Stats text
+  ctx.save();
+  ctx.font        = "bold 13px Arial";
+  ctx.fillStyle   = "#ffffff";
+  ctx.textBaseline = "top";
+
+  ctx.fillText(`REPS`,          40, 22);
+  ctx.font      = "bold 26px Arial";
+  ctx.fillStyle = "#b46cff";
+  ctx.fillText(repData?.reps ?? 0,   40, 36);
+
+  ctx.font      = "bold 12px Arial";
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(`SETS`,          100, 22);
+  ctx.font      = "bold 22px Arial";
+  ctx.fillStyle = "#b46cff";
+  ctx.fillText(restTimer?.setCount ?? 0, 100, 36);
+
+  ctx.font      = "bold 12px Arial";
+  ctx.fillStyle = "#aaaaaa";
+  ctx.fillText(`SCORE`,         40, 72);
+  ctx.font      = "bold 18px Arial";
+  ctx.fillStyle = barColor;
+  ctx.fillText(`${score}%`,     40, 86);
+
+  ctx.font      = "bold 12px Arial";
+  ctx.fillStyle = "#aaaaaa";
+  ctx.fillText(`CALORIES`,      40, 112);
+  ctx.font      = "bold 16px Arial";
+  ctx.fillStyle = "#EF9F27";
+  ctx.fillText(`${calories} kcal`, 40, 126);
+
+  // Speed quality badge
+  const speed = repData?.speed ?? "Good Form";
+  ctx.font      = "bold 11px Arial";
+  ctx.fillStyle = speed === "Too Fast" ? "#ff4444"
+                : speed === "Too Slow" ? "#ffaa00"
+                : "#44ff44";
+  ctx.fillText(`⚡ ${speed}`, 40, 150);
+
+  // Rest timer
+  if (restTimer?.resting) {
+    ctx.font      = "bold 12px Arial";
+    ctx.fillStyle = "#378ADD";
+    ctx.fillText(`REST: ${restTimer.secondsLeft}s`, 40, 172);
+    ctx.font      = "bold 10px Arial";
+    ctx.fillStyle = "#aaaaaa";
+    ctx.fillText(`Set ${restTimer.setCount} complete!`, 40, 188);
+  }
+
+  ctx.restore();
+
+  // ── 3. Stage indicator (top center) ──
+  const stage = repData?.stage;
+  if (stage) {
+    const label = stage === "up" ? "↑ CONTRACT" : "↓ EXTEND";
+    const labelW = 120;
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.65)";
+    roundRect(ctx, W / 2 - labelW / 2, 12, labelW, 32, 8);
+    ctx.fill();
+    ctx.font        = "bold 13px Arial";
+    ctx.fillStyle   = stage === "up" ? "#44ff44" : "#b46cff";
+    ctx.textAlign   = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, W / 2, 28);
+    ctx.restore();
+  }
+}
+
+// ── Rounded rect helper (canvas API does not have this natively) ──────────────
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
 }
 
 export function keypointsToMap(keypoints) {
@@ -508,19 +767,25 @@ function computePhaseScore(userAngles, refFrames, activeAngles) {
 }
 
 // ── WRONG EXERCISE DETECTION ─────────────────────────────────────────────────
-function detectWrongExercise(userAngles, activeAngles, embeddingScore) {
+function detectWrongExercise(userAngles, activeAngles, embeddingScore, angleAvgDiff) {
   const activeNames = activeAngles.map(a => a.name);
   let userHasActive = 0;
   for (const name of activeNames) {
     if (userAngles[name] != null) userHasActive++;
   }
-  const coverage = activeNames.length > 0 ? userHasActive / activeNames.length : 0;
+  const coverage = activeNames.length > 0
+    ? userHasActive / activeNames.length : 0;
 
-  // Wrong exercise if: low coverage AND low embedding similarity
-  return coverage < 0.3 && embeddingScore < 35;
+  // Much stricter — needs ALL three conditions to be true
+  return (
+    coverage < 0.25 &&           // less than 25% joints visible
+    embeddingScore < 25 &&        // body shape very different
+    angleAvgDiff > 70             // angles very far off
+  );
 }
 
 // ── BEST FRAME FINDER ────────────────────────────────────────────────────────
+// Replace findBestRefFrame in poseUtils.js
 function findBestRefFrame(userAngles, refFrames, activeAngles) {
   if (!refFrames || refFrames.length === 0) return refFrames?.[0] ?? null;
 
@@ -530,6 +795,7 @@ function findBestRefFrame(userAngles, refFrames, activeAngles) {
 
   let bestFrame = refFrames[0];
   let bestDiff  = Infinity;
+  let bestCount = 0;
 
   for (const frame of refFrames) {
     let total = 0, count = 0;
@@ -542,8 +808,16 @@ function findBestRefFrame(userAngles, refFrames, activeAngles) {
     }
     if (count === 0) continue;
     const avg = total / count;
-    if (avg < bestDiff) { bestDiff = avg; bestFrame = frame; }
+    if (avg < bestDiff) {
+      bestDiff  = avg;
+      bestFrame = frame;
+      bestCount = count;
+    }
   }
+
+  // If less than 40% of active joints matched — no reliable frame found
+  const minRequired = Math.ceil(activeNames.length * 0.4);
+  if (bestCount < minRequired) return null;
 
   return bestFrame;
 }
@@ -595,7 +869,9 @@ export function compareAgainstMotion(
   const phaseResult = computePhaseScore(userAngles, refFrames, activeAngles);
 
   // ── Wrong exercise detection ──────────────────────────────────────────────
-  const wrongExercise = detectWrongExercise(userAngles, activeAngles, embResult.score);
+  const wrongExercise = detectWrongExercise(
+  userAngles, activeAngles, embResult.score, angleResult.avgDiff
+);
 
   // ── Weighted final score ──────────────────────────────────────────────────
   const finalScore = wrongExercise ? 0 : Math.round(
@@ -705,18 +981,6 @@ export function precomputeRefData(refFrames) {
   return { activeAngles, exerciseType, refVelocities };
 }
 
-// ── REP COUNTER ───────────────────────────────────────────────────────────────
-export function createRepCounter(angleName, upThreshold = 160, downThreshold = 90) {
-  let stage = "up";
-  let reps  = 0;
-  return function tick(angles) {
-    const angle = angles[angleName];
-    if (angle === undefined) return reps;
-    if (angle > upThreshold) stage = "up";
-    if (angle < downThreshold && stage === "up") { stage = "down"; reps++; }
-    return reps;
-  };
-}
 
 // ── CANVAS DRAWING ────────────────────────────────────────────────────────────
 export function drawSkeleton(ctx, keypointMap, differences = {}) {
