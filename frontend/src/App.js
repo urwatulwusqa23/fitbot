@@ -1,8 +1,9 @@
 import "@tensorflow/tfjs";
 import "@tensorflow/tfjs-backend-webgl";
 import React from "react";
+import { useEffect } from "react";
 import './App.css';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate,useLocation } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import store from './store/index';
 
@@ -31,6 +32,7 @@ import AdminRoute from './admin/AdminRoute';
 // ── Pages ────────────────────────────────────────────────────────────────────
 import ExerciseAnalyzer from './pages/ExerciseAnalyzer';
 
+
 // ── Route Guards ─────────────────────────────────────────────────────────────
 const PrivateRoute = ({ children }) => {
     const token = localStorage.getItem('token');
@@ -43,16 +45,24 @@ const PublicOnlyRoute = ({ children }) => {
 };
 
 // ── Dashboard Layout ─────────────────────────────────────────────────────────
-const Dashboard = () => (
-    <>
-        <NavBar />
-        <Intro />
-        <ChatBot />
-        <BMICalculator />
-        <Footer />
-    </>
-);
+const Dashboard = () => {
+    useEffect(() => {
+        window.scrollTo(0, 0);
+        if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+        }
+    }, []);
 
+    return (
+        <>
+            <NavBar />
+            <Intro />
+            <ChatBot />
+            <BMICalculator />
+            <Footer />
+        </>
+    );
+};
 // ── App ───────────────────────────────────────────────────────────────────────
 function App() {
     return (

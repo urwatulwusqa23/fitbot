@@ -1,16 +1,19 @@
-# Python
+# Python virtual environment
 venv/
+.venv/
+env/
+
+# Environment variables
+.env
+
+# Python cache
 __pycache__/
 *.pyc
+*.pyo
+
+# .NET
+bin/
+obj/
 
 # Node
 node_modules/
-
-# Environment files
-.env
-
-# Logs
-*.log
-
-# OS files
-.DS_Store
