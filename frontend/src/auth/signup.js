@@ -65,7 +65,11 @@ export default function Signup() {
     setError('');
     setIsLoading(true);
     try {
-      const data = await api.googleLogin(credentialResponse.credential);
+      const idToken = credentialResponse?.credential;
+      if (!idToken) {
+        throw new Error('Google did not return a valid ID token. Please try again.');
+      }
+      const data = await api.googleLogin(idToken);
       if (data.token) {
         localStorage.setItem('token', data.token);
         if (data.hasProfile === false) {

@@ -7,6 +7,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
 const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
+console.log('REACT_APP_GOOGLE_CLIENT_ID:', googleClientId);
 
 const app = (
   <BrowserRouter>

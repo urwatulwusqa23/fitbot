@@ -49,7 +49,11 @@ export default function Login() {
     setError('');
     setIsLoading(true);
     try {
-      const data = await api.googleLogin(credentialResponse.credential);
+      const idToken = credentialResponse?.credential;
+      if (!idToken) {
+        throw new Error('Google did not return a valid ID token. Please try again.');
+      }
+      const data = await api.googleLogin(idToken);
       if (data.token) {
         localStorage.setItem('token', data.token);
         if (data.hasProfile === false) {
@@ -62,7 +66,7 @@ export default function Login() {
       }
     } catch (err) {
       console.error(err);
-      setError(err.message || 'Google sign-in failed. Ensure the API is running (https://localhost:7176) and CORS allows this origin.');
+      setError(err.message || 'Google sign-in failed. Ensure the API is running and CORS allows this origin.');
     } finally {
       setIsLoading(false);
     }

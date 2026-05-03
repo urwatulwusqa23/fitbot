@@ -1,5 +1,6 @@
-const API_URL = "http://localhost:5076/api";
-//const BASE_URL = process.env.REACT_APP_API_URL || 'https://localhost:7176';
+const API_URL = process.env.REACT_APP_API_URL || "/api";
+// If you want to bypass the proxy in development, set REACT_APP_API_URL in .env.
+// const API_URL = process.env.REACT_APP_API_URL || 'https://localhost:7176/api';
 
 export const api = {
     // ── Auth ────────────────────────────────────────────────────────────────────

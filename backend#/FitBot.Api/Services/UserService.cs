@@ -82,7 +82,7 @@ namespace FitBot.Api.Services
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
                 _configuration.GetSection("Jwt:Key").Value!));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256Signature);
 
             var token = new JwtSecurityToken(
                 claims: claims,
@@ -99,6 +99,11 @@ namespace FitBot.Api.Services
             try
             {
                 var settings = new GoogleJsonWebSignature.ValidationSettings();
+                var googleClientId = _configuration["Google:ClientId"];
+                if (!string.IsNullOrWhiteSpace(googleClientId))
+                {
+                    settings.Audience = new[] { googleClientId };
+                }
                 payload = await GoogleJsonWebSignature.ValidateAsync(idToken, settings);
             }
             catch
