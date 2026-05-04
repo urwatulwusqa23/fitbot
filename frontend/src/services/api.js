@@ -1,6 +1,6 @@
 //const API_URL = process.env.REACT_APP_API_URL || "/api";
 // If you want to bypass the proxy in development, set REACT_APP_API_URL in .env.
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5076';
+const API_URL = process.env.REACT_APP_API_URL || 'https://fyp-health-assistant.onrender.com';
 
 export const api = {
     // ── Auth ────────────────────────────────────────────────────────────────────
