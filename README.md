@@ -39,7 +39,12 @@ Default connection in `backend#/FitBot.Api/appsettings.json` uses **LocalDB**:
 
 After editing the connection string, apply the schema (from `backend#/FitBot.Api`):
 
+#For nuget Package Manager
 ```bash
+Add-Migration MigrationName
+Update-Database
+
+OR
 dotnet ef database update
 ```
 
