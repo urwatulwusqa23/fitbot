@@ -17,6 +17,7 @@ obj/
 
 # Node
 node_modules/
+build/
 
 # Large ML model binaries (download/train separately)
 *.pt
