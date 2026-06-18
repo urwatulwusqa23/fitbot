@@ -1,7 +1,7 @@
-const API_URL = process.env.REACT_APP_API_URL || "/api";
+//const API_URL = process.env.REACT_APP_API_URL || "/api";
 // If you want to bypass the proxy in development, set REACT_APP_API_URL in .env.
-// const API_URL = process.env.REACT_APP_API_URL || 'https://localhost:7176/api';
-
+const API_URL = import.meta.env.VITE_API_URL;
+console.log("API_URL:", import.meta.env.VITE_API_URL);
 export const api = {
     // ── Auth ────────────────────────────────────────────────────────────────────
     login: async (credentials) => {
@@ -14,7 +14,7 @@ export const api = {
     },
 
     register: async (userData) => {
-        const response = await fetch(`${API_URL}/auth/register`, {
+        const response = await fetch(`${API_URL}/api/auth/register`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(userData),

@@ -12,8 +12,11 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // DB
+//builder.Services.AddDbContext<AppDbContext>(options =>
+//    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -42,9 +45,20 @@ builder.Services.AddHttpClient();
 //            .SetIsOriginAllowed(_ => true); // allows localhost + any dev origin
 //    });
 //});
+//builder.Services.AddCors(options =>
+//{
+//    options.AddPolicy("AllowReactApp", policy =>
+//    {
+//        policy
+//            .WithOrigins("http://localhost:3000") // Be explicit about your frontend
+//            .AllowAnyHeader()
+//            .AllowAnyMethod()
+//            .AllowCredentials();
+//    });
+//});
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowReactApp", policy =>
+    options.AddPolicy("AllowFrontend", policy =>
     {
         policy
             .WithOrigins("http://localhost:3000", "https://localhost:3000")
@@ -68,6 +82,26 @@ builder.Services.AddAuthentication()
     };
 });
 
+//builder.Services.AddCors(options =>
+//{
+//    options.AddPolicy("ProductionPolicy", policy =>
+//    {
+//        policy.WithOrigins(
+//            "https://frontend-liart-two-37.vercel.app",   // Replace with your actual Vercel URL
+//            "https://your-custom-domain.com"  // If you have a custom domain
+//        )
+//        .AllowAnyHeader()
+//        .AllowAnyMethod()
+//        .AllowCredentials(); // Only if using cookies/sessions
+//    });
+//});
+
+// Add this AFTER app.Build() but BEFORE app.MapControllers()
+
+
+var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+builder.WebHost.UseUrls($"http://+:{port}");
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -81,7 +115,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseRouting();
 
-app.UseCors("AllowReactApp");
+app.UseCors("AllowFrontend");
 
 app.UseAuthentication();
 app.UseAuthorization();

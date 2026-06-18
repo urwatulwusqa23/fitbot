@@ -86,7 +86,7 @@ namespace FitBot.Api.Services
             try
             {
                 var client = _httpClientFactory.CreateClient();
-                client.Timeout = TimeSpan.FromSeconds(30);
+                client.Timeout = TimeSpan.FromSeconds(60);
 
                 var contents = new List<object>();
                 foreach (var h in history.TakeLast(10))
@@ -110,10 +110,11 @@ namespace FitBot.Api.Services
                         parts = new[] { new { text = systemPrompt } }
                     },
                     contents,
-                    generationConfig = new { maxOutputTokens = 2048, temperature = 0.7 }
+                    generationConfig = new { maxOutputTokens = 8192, temperature = 0.7 }
                 };
+                var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={apiKey}";
 
-                var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={apiKey}";
+                //var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={apiKey}";
                 var httpResp = await client.PostAsync(url,
                     new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"));
 
@@ -164,7 +165,7 @@ namespace FitBot.Api.Services
             try
             {
                 var client = _httpClientFactory.CreateClient();
-                client.Timeout = TimeSpan.FromSeconds(30);
+                client.Timeout = TimeSpan.FromSeconds(60);
 
                 // Build messages array — OpenAI-compatible format
                 var messages = new List<object>
@@ -182,7 +183,7 @@ namespace FitBot.Api.Services
                 {
                     model = "llama-3.3-70b-versatile",
                     messages,
-                    max_tokens = 2048,
+                    max_tokens = 8000,
                     temperature = 0.7
                 };
 
@@ -226,7 +227,7 @@ namespace FitBot.Api.Services
             try
             {
                 var client = _httpClientFactory.CreateClient();
-                client.Timeout = TimeSpan.FromSeconds(30);
+                client.Timeout = TimeSpan.FromSeconds(60);
 
                 var messages = new List<object>
                 {

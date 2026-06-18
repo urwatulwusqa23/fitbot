@@ -9,4 +9,9 @@ obj/
 
 # Logs
 *.log
-appsettings.json
+
+# Secrets — never commit these
+appsettings.Development.json
+.env
+*.pfx
+*.p12
