@@ -164,7 +164,7 @@ const ChatBot = () => {
                                 placeholder="Ask about workouts, diet, exercises..."
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
-                                onKeyPress={(e) => e.key === "Enter" && handleSend()}
+                                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
                                 disabled={isLoading}
                                 style={{ backgroundColor: "#1a1027", color: "#fff", border: "1px solid #2c1a4b", borderRadius: "12px" }}
                             />

@@ -125,9 +125,10 @@ export default function Profile() {
                 <span className="bmi-subtitle">Current BMI</span>
                 <div className="bmi-value-large">{profile?.bmiValue?.toFixed(1)}</div>
                 <div className="bmi-status-pill">
-                    {profile?.bmiValue < 18.5 ? 'Underweight' : 
-                     profile?.bmiValue < 25 ? 'Normal Weight' : 
-                     profile?.bmiValue < 30 ? 'Overweight' : 'Obese'}
+                    {profile?.bmiValue < 18.5 ? 'Underweight' :
+                     profile?.bmiValue < 25   ? 'Normal Weight' :
+                     profile?.bmiValue < 30   ? 'Overweight' :
+                     profile?.bmiValue < 35   ? 'Obese Class I' : 'Obese Class II+'}
                 </div>
               </div>
 

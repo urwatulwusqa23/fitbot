@@ -29,9 +29,10 @@ namespace FitBot.Api.Services
         public async Task<ChatResponseDto> GetAiResponseAsync(
             string message,
             List<ChatHistoryItem> history,
-            UserProfile? profile)
+            UserProfile? profile,
+            IEnumerable<DeepMemory>? memory = null)
         {
-            var systemPrompt = BuildSystemPrompt(profile);
+            var systemPrompt = BuildSystemPrompt(profile, memory);
 
             // 1. Try Gemini first
             var geminiKey = _config["ApiKeys:Gemini"];
@@ -277,7 +278,7 @@ namespace FitBot.Api.Services
         }
 
         // ── System prompt ─────────────────────────────────────────────────────
-        private static string BuildSystemPrompt(UserProfile? profile)
+        private static string BuildSystemPrompt(UserProfile? profile, IEnumerable<DeepMemory>? memory = null)
         {
             var sb = new StringBuilder();
             sb.AppendLine("You are FitBot, an expert AI fitness and nutrition assistant.");
@@ -294,20 +295,53 @@ namespace FitBot.Api.Services
 
             if (profile != null)
             {
+                var bmiCategory = GetBmiCategory(profile.BmiValue);
                 sb.AppendLine();
                 sb.AppendLine("USER PROFILE (personalize every answer based on this):");
                 sb.AppendLine($"- Age: {profile.Age}");
                 sb.AppendLine($"- Gender: {profile.Gender}");
                 sb.AppendLine($"- Height: {profile.Height} cm");
                 sb.AppendLine($"- Weight: {profile.Weight} kg");
-                sb.AppendLine($"- BMI: {profile.BmiValue:F1}");
+                sb.AppendLine($"- BMI: {profile.BmiValue:F1} ({bmiCategory})");
                 sb.AppendLine($"- Target Weight: {profile.TargetWeight} kg");
                 if (!string.IsNullOrWhiteSpace(profile.HealthIssues))
                     sb.AppendLine($"- Health Issues: {profile.HealthIssues}");
             }
 
+            // Include learned memory facts from past conversations
+            var memoryList = memory?.ToList();
+            if (memoryList != null && memoryList.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine("MEMORY (facts learned from this user's past conversations — treat as confirmed preferences):");
+                foreach (var m in memoryList)
+                {
+                    var label = m.MemoryKey switch
+                    {
+                        "goal"             => "Fitness goal",
+                        "diet_type"        => "Diet type",
+                        "experience"       => "Experience level",
+                        "workout_days"     => "Workout days per week",
+                        "injury_knee"      => "Has knee injury/pain",
+                        "injury_back"      => "Has back injury/pain",
+                        "injury_shoulder"  => "Has shoulder injury/pain",
+                        _                  => m.MemoryKey
+                    };
+                    sb.AppendLine($"- {label}: {m.MemoryValue}");
+                }
+            }
+
             return sb.ToString();
         }
+
+        private static string GetBmiCategory(float bmi) => bmi switch
+        {
+            < 18.5f => "Underweight",
+            < 25.0f => "Normal weight",
+            < 30.0f => "Overweight",
+            < 35.0f => "Obese Class I",
+            _       => "Obese Class II+"
+        };
 
         // ── History ───────────────────────────────────────────────────────────
         public async Task<List<object>> GetHistoryAsync(int userId)

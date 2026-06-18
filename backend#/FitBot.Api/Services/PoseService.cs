@@ -118,7 +118,7 @@ namespace FitBot.Api.Services
             try
             {
                 var response = await client.PostAsync(
-                    $"{PythonServiceUrl}/api/process-reference-video", content);
+                    $"{PythonServiceUrl}/api/process-uploaded-video", content);
 
                 var responseJson = await response.Content.ReadAsStringAsync();
 

@@ -53,6 +53,30 @@ dl_transform = None
 dl_available = False
 
 
+def _build_densenet121(device):
+    import torch.nn as nn
+    import torchvision.models as models
+    model = models.densenet121(weights=None)
+    in_f  = model.classifier.in_features
+    model.classifier = nn.Sequential(
+        nn.Linear(in_f, 256), nn.ReLU(), nn.Dropout(0.2), nn.Linear(256, 1))
+    return model
+
+def _build_efficientnet_b4(device):
+    import torch.nn as nn
+    import torchvision.models as models
+    model = models.efficientnet_b4(weights=None)
+    in_f  = model.classifier[1].in_features  # 1792
+    model.classifier = nn.Sequential(
+        nn.Dropout(p=0.4, inplace=True),
+        nn.Linear(in_f, 512),
+        nn.BatchNorm1d(512),
+        nn.GELU(),
+        nn.Dropout(p=0.3),
+        nn.Linear(512, 1),
+    )
+    return model
+
 def load_deep_learning_model():
     global dl_model, dl_device, dl_transform, dl_available
 
@@ -63,42 +87,62 @@ def load_deep_learning_model():
 
     try:
         import torch
-        import torch.nn as nn
-        import torchvision.models as models
         import torchvision.transforms as T
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"[DL] Loading DenseNet121 on {device} ...")
 
-        model = models.densenet121(pretrained=False)
-        in_features = model.classifier.in_features
-        model.classifier = nn.Sequential(
-            nn.Linear(in_features, 256),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(256, 1),
-        )
-        model.load_state_dict(torch.load(MODEL_PT_PATH, map_location=device))
+        # Load checkpoint — new format stores architecture name, old format is raw state_dict
+        raw = torch.load(MODEL_PT_PATH, map_location=device, weights_only=False)
+        if isinstance(raw, dict) and "architecture" in raw:
+            arch       = raw["architecture"]
+            state_dict = raw["model_state_dict"]
+            saved_mae  = raw.get("val_mae", "?")
+        else:
+            arch       = "densenet121"   # old model file (no metadata)
+            state_dict = raw
+            saved_mae  = "?"
+
+        print(f"[DL] Loading {arch} on {device}  (saved Val MAE: {saved_mae}) ...")
+
+        if arch == "efficientnet_b4":
+            model = _build_efficientnet_b4(device)
+        else:
+            model = _build_densenet121(device)
+
+        model.load_state_dict(state_dict)
         model.to(device)
         model.eval()
 
-        transform = T.Compose([
-            T.Resize((256, 256)),
-            T.CenterCrop(224),
+        # Shared normalisation transform (used for each TTA crop)
+        normalize = T.Compose([
             T.ToTensor(),
             T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
         ])
 
         dl_model     = model
         dl_device    = device
-        dl_transform = transform
+        dl_transform = normalize   # crops are applied separately in predict fn
         dl_available = True
-        print("[DL] DenseNet121 ready — deep learning ENABLED.")
+        print(f"[DL] {arch} ready — deep learning ENABLED.")
 
     except Exception as e:
         print(f"[DL] Load failed: {e}")
         print("[DL] Deep learning DISABLED — will use pose fallback.")
 
+
+def _tta_crops(pil_img):
+    """Return 3 deterministic crops for test-time augmentation."""
+    import torchvision.transforms.functional as TF
+    crops = []
+    resized = TF.resize(pil_img, [256, 256])
+    # 1. centre crop
+    crops.append(TF.center_crop(resized, [224, 224]))
+    # 2. horizontally-flipped centre crop
+    crops.append(TF.hflip(TF.center_crop(resized, [224, 224])))
+    # 3. slightly zoomed-out crop (top-centre)
+    big = TF.resize(pil_img, [280, 280])
+    crops.append(TF.center_crop(big, [224, 224]))
+    return crops
 
 def predict_bmi_deep_learning(img_bgr, known_height_cm=None):
     import torch
@@ -106,10 +150,11 @@ def predict_bmi_deep_learning(img_bgr, known_height_cm=None):
 
     rgb     = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
     pil_img = PILImage.fromarray(rgb)
-    tensor  = dl_transform(pil_img).unsqueeze(0).to(dl_device)
 
+    # 3-crop TTA: average predictions to reduce variance
+    tensors = torch.stack([dl_transform(c) for c in _tta_crops(pil_img)]).to(dl_device)
     with torch.no_grad():
-        bmi_raw = float(dl_model(tensor).item())
+        bmi_raw = float(dl_model(tensors).mean().item())
 
     bmi_pred = float(np.clip(bmi_raw, 12.0, 55.0))
     ci_half  = 2.5
@@ -117,7 +162,6 @@ def predict_bmi_deep_learning(img_bgr, known_height_cm=None):
     bmi_hi   = round(min(bmi_pred + ci_half, 60.0), 1)
     bmi_pred = round(bmi_pred, 1)
 
-    # Estimate weight if height is known, otherwise leave null
     if known_height_cm:
         h_m        = float(known_height_cm) / 100.0
         weight_est = round(bmi_pred * h_m * h_m, 1)
@@ -143,11 +187,12 @@ def predict_bmi_deep_learning(img_bgr, known_height_cm=None):
 # =============================================================================
 # FALLBACK METHOD: MediaPipe Pose Estimation
 # =============================================================================
-pose_ready   = False
-pose_scaler  = None
-pose_bmi_gbr = pose_bmi_rf = None
-pose_ht_gbr  = pose_ht_rf  = None
-pose_wt_gbr  = pose_wt_rf  = None
+pose_ready    = False
+pose_detector = None   # cached at startup — not recreated per request
+pose_scaler   = None
+pose_bmi_gbr  = pose_bmi_rf = None
+pose_ht_gbr   = pose_ht_rf  = None
+pose_wt_gbr   = pose_wt_rf  = None
 
 POSE_FEAT = [
     "shoulder_ratio","hip_ratio","waist_ratio","torso_ratio",
@@ -157,7 +202,7 @@ POSE_FEAT = [
 
 
 def setup_pose_models():
-    global pose_ready, pose_scaler
+    global pose_ready, pose_scaler, pose_detector
     global pose_bmi_gbr, pose_bmi_rf
     global pose_ht_gbr,  pose_ht_rf
     global pose_wt_gbr,  pose_wt_rf
@@ -172,65 +217,87 @@ def setup_pose_models():
         )
         print("[Pose] Download complete.")
 
-    import pandas as pd
-    from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
-    from sklearn.preprocessing import StandardScaler
-    from sklearn.model_selection import train_test_split
+    try:
+        import mediapipe as mp
+        from mediapipe.tasks import python as mp_tasks
+        from mediapipe.tasks.python import vision as mp_vision
+        import pandas as pd
+        from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+        from sklearn.preprocessing import StandardScaler
+        from sklearn.model_selection import train_test_split
 
-    print("[Pose] Generating NHANES synthetic data and training ensemble ...")
-    np.random.seed(42)
+        # Create the PoseLandmarker once and cache it for all requests
+        print("[Pose] Initialising MediaPipe PoseLandmarker ...")
+        base_opts = mp_tasks.BaseOptions(model_asset_path=POSE_MODEL_PATH)
+        opts = mp_vision.PoseLandmarkerOptions(
+            base_options=base_opts,
+            output_segmentation_masks=False,
+            min_pose_detection_confidence=0.45,
+            min_pose_presence_confidence=0.45,
+            min_tracking_confidence=0.45,
+            num_poses=1,
+        )
+        pose_detector = mp_vision.PoseLandmarker.create_from_options(opts)
+        print("[Pose] PoseLandmarker cached.")
 
-    rows = []
-    for _ in range(10000):
-        sex    = np.random.choice(["M", "F"])
-        height = np.clip(np.random.normal(175.7 if sex=="M" else 161.8,
-                                          7.1   if sex=="M" else 6.8), 145, 205)
-        bmi    = np.clip(np.random.lognormal(
-                    np.log(29.1 if sex=="M" else 29.6) - 0.08, 0.22), 14.0, 55.0)
-        weight = bmi * (height/100)**2
-        bs, bh = (0.259, 0.195) if sex=="M" else (0.231, 0.218)
-        sh  = bs  + 0.0012*(bmi-22) + np.random.normal(0,0.009)
-        hh  = bh  + 0.0018*(bmi-22) + np.random.normal(0,0.009)
-        wh  = 0.160+0.0025*(bmi-18.5)+np.random.normal(0,0.008)
-        th  = 0.310+np.random.normal(0,0.010)
-        lh  = 0.530-0.0008*(bmi-22) +np.random.normal(0,0.012)
-        nh  = 0.055+0.0008*(bmi-22) +np.random.normal(0,0.004)
-        ah  = 0.058+0.0012*(bmi-22) +np.random.normal(0,0.005)
-        tkh = 0.090+0.0018*(bmi-22) +np.random.normal(0,0.006)
-        shr = sh/max(hh,0.001); whr=wh/max(hh,0.001); bri=wh*1.8
-        rows.append(dict(height_cm=height,weight_kg=weight,bmi=bmi,
-            shoulder_ratio=sh,hip_ratio=hh,waist_ratio=wh,torso_ratio=th,
-            leg_ratio=lh,neck_ratio=nh,arm_ratio=ah,thigh_ratio=tkh,
-            shoulder_hip_ratio=shr,waist_hip_ratio=whr,bri_proxy=bri))
+        print("[Pose] Generating NHANES synthetic data and training ensemble ...")
+        np.random.seed(42)
 
-    df = pd.DataFrame(rows)
-    X  = df[POSE_FEAT].values
-    X_tr,_,yb,_,yh,_,yw,_ = train_test_split(
-        X, df["bmi"].values, df["height_cm"].values, df["weight_kg"].values,
-        test_size=0.15, random_state=42)
+        rows = []
+        for _ in range(10000):
+            sex    = np.random.choice(["M", "F"])
+            height = np.clip(np.random.normal(175.7 if sex=="M" else 161.8,
+                                              7.1   if sex=="M" else 6.8), 145, 205)
+            bmi    = np.clip(np.random.lognormal(
+                        np.log(29.1 if sex=="M" else 29.6) - 0.08, 0.22), 14.0, 55.0)
+            weight = bmi * (height/100)**2
+            bs, bh = (0.259, 0.195) if sex=="M" else (0.231, 0.218)
+            sh  = bs  + 0.0012*(bmi-22) + np.random.normal(0,0.009)
+            hh  = bh  + 0.0018*(bmi-22) + np.random.normal(0,0.009)
+            wh  = 0.160+0.0025*(bmi-18.5)+np.random.normal(0,0.008)
+            th  = 0.310+np.random.normal(0,0.010)
+            lh  = 0.530-0.0008*(bmi-22) +np.random.normal(0,0.012)
+            nh  = 0.055+0.0008*(bmi-22) +np.random.normal(0,0.004)
+            ah  = 0.058+0.0012*(bmi-22) +np.random.normal(0,0.005)
+            tkh = 0.090+0.0018*(bmi-22) +np.random.normal(0,0.006)
+            shr = sh/max(hh,0.001); whr=wh/max(hh,0.001); bri=wh*1.8
+            rows.append(dict(height_cm=height,weight_kg=weight,bmi=bmi,
+                shoulder_ratio=sh,hip_ratio=hh,waist_ratio=wh,torso_ratio=th,
+                leg_ratio=lh,neck_ratio=nh,arm_ratio=ah,thigh_ratio=tkh,
+                shoulder_hip_ratio=shr,waist_hip_ratio=whr,bri_proxy=bri))
 
-    sc   = StandardScaler()
-    Xts  = sc.fit_transform(X_tr)
+        df = pd.DataFrame(rows)
+        X  = df[POSE_FEAT].values
+        X_tr,_,yb,_,yh,_,yw,_ = train_test_split(
+            X, df["bmi"].values, df["height_cm"].values, df["weight_kg"].values,
+            test_size=0.15, random_state=42)
 
-    def gbr(): return GradientBoostingRegressor(
-        n_estimators=400,learning_rate=0.05,max_depth=5,
-        subsample=0.85,min_samples_leaf=10,random_state=42)
-    def rfr(): return RandomForestRegressor(
-        n_estimators=300,max_depth=10,min_samples_leaf=8,n_jobs=-1,random_state=42)
+        sc   = StandardScaler()
+        Xts  = sc.fit_transform(X_tr)
 
-    print("[Pose] Training BMI ...")
-    bg=gbr(); bg.fit(Xts,yb); br=rfr(); br.fit(Xts,yb)
-    print("[Pose] Training Height ...")
-    hg=gbr(); hg.fit(Xts,yh); hr=rfr(); hr.fit(Xts,yh)
-    print("[Pose] Training Weight ...")
-    wg=gbr(); wg.fit(Xts,yw); wr=rfr(); wr.fit(Xts,yw)
+        def gbr(): return GradientBoostingRegressor(
+            n_estimators=400,learning_rate=0.05,max_depth=5,
+            subsample=0.85,min_samples_leaf=10,random_state=42)
+        def rfr(): return RandomForestRegressor(
+            n_estimators=300,max_depth=10,min_samples_leaf=8,n_jobs=-1,random_state=42)
 
-    pose_scaler=sc
-    pose_bmi_gbr=bg; pose_bmi_rf=br
-    pose_ht_gbr=hg;  pose_ht_rf=hr
-    pose_wt_gbr=wg;  pose_wt_rf=wr
-    pose_ready=True
-    print("[Pose] Pose fallback ready.")
+        print("[Pose] Training BMI ...")
+        bg=gbr(); bg.fit(Xts,yb); br=rfr(); br.fit(Xts,yb)
+        print("[Pose] Training Height ...")
+        hg=gbr(); hg.fit(Xts,yh); hr=rfr(); hr.fit(Xts,yh)
+        print("[Pose] Training Weight ...")
+        wg=gbr(); wg.fit(Xts,yw); wr=rfr(); wr.fit(Xts,yw)
+
+        pose_scaler=sc
+        pose_bmi_gbr=bg; pose_bmi_rf=br
+        pose_ht_gbr=hg;  pose_ht_rf=hr
+        pose_wt_gbr=wg;  pose_wt_rf=wr
+        pose_ready=True
+        print("[Pose] Pose fallback ready.")
+
+    except Exception as e:
+        print(f"[Pose] Setup failed: {e}")
+        print("[Pose] Pose fallback DISABLED.")
 
 
 def _dist(a, b):
@@ -242,24 +309,13 @@ def _pt(lm, i, w, h):
 
 def extract_pose_features(img_bgr):
     import mediapipe as mp
-    from mediapipe.tasks import python as mp_tasks
-    from mediapipe.tasks.python import vision as mp_vision
 
     hh, ww = img_bgr.shape[:2]
     rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
     mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
 
-    base_opts = mp_tasks.BaseOptions(model_asset_path=POSE_MODEL_PATH)
-    opts = mp_vision.PoseLandmarkerOptions(
-        base_options=base_opts,
-        output_segmentation_masks=False,
-        min_pose_detection_confidence=0.45,
-        min_pose_presence_confidence=0.45,
-        min_tracking_confidence=0.45,
-        num_poses=1,
-    )
-    with mp_vision.PoseLandmarker.create_from_options(opts) as det:
-        result = det.detect(mp_image)
+    # Use the cached detector — no per-request model loading
+    result = pose_detector.detect(mp_image)
 
     if not result.pose_landmarks:
         return None, False
@@ -309,24 +365,28 @@ def predict_bmi_pose(img_bgr, known_height_cm=None):
     samps = [float(ens(pose_bmi_gbr,pose_bmi_rf,
              pose_scaler.transform((feats+rng.normal(0,0.012,feats.shape)).reshape(1,-1))))
              for _ in range(120)]
-    lo = np.percentile(samps, 5)
-    hi = np.percentile(samps, 95)
+    lo = float(np.percentile(samps, 5))
+    hi = float(np.percentile(samps, 95))
+
+    # Preserve the uncertainty width so we can recentre after height rescaling
+    bmi_ci_half = (hi - lo) / 2.0
 
     if known_height_cm and known_height_cm > 0:
         s    = known_height_cm / max(hhat, 1)
         hhat = float(known_height_cm)
-        what = round(what*(s**2), 1)
-        bhat = round(what/(known_height_cm/100)**2, 1)
-        lo   = round(lo*(s**2), 1)
-        hi   = round(hi*(s**2), 1)
+        what = round(what * (s ** 2), 1)
+        bhat = round(what / (known_height_cm / 100) ** 2, 1)
+        # Recentre the CI on the rescaled BMI estimate, keeping the original uncertainty width
+        lo = max(bhat - bmi_ci_half, 10.0)
+        hi = min(bhat + bmi_ci_half, 60.0)
 
     label, col = bmi_cat(bhat)
     return {
-        "bmi":            round(bhat,1),
-        "bmi_lo":         round(lo,1),
-        "bmi_hi":         round(hi,1),
-        "height_cm":      round(hhat,1),
-        "weight_kg":      round(what,1),
+        "bmi":            round(bhat, 1),
+        "bmi_lo":         round(lo, 1),
+        "bmi_hi":         round(hi, 1),
+        "height_cm":      round(hhat, 1),
+        "weight_kg":      round(what, 1),
         "category":       label,
         "cat_color":      col,
         "method":         "pose_estimation",
@@ -356,9 +416,19 @@ def predict_bmi():
     if "image" not in request.files:
         return jsonify({"error": "No image uploaded"}), 400
 
-    file            = request.files["image"]
-    known_height    = request.form.get("height", None)
-    known_height_cm = float(known_height) if known_height else None
+    file         = request.files["image"]
+    known_height = request.form.get("height", None)
+
+    known_height_cm = None
+    if known_height:
+        try:
+            val = float(known_height)
+            if 50.0 <= val <= 280.0:
+                known_height_cm = val
+            else:
+                return jsonify({"error": "Height must be between 50 and 280 cm."}), 400
+        except (ValueError, TypeError):
+            return jsonify({"error": "Invalid height value provided."}), 400
 
     file_bytes = np.frombuffer(file.read(), np.uint8)
     img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)

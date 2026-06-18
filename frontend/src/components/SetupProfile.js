@@ -11,7 +11,7 @@ export default function SetupProfile() {
     gender: 'Male',
     weight: '',
     height: '',
-    goal: 'Lose Weight',
+    targetWeight: '',
     healthIssues: ''
   });
   const [error, setError] = useState('');
@@ -19,9 +19,14 @@ export default function SetupProfile() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // This calls the backend endpoint we planned earlier
-      await api.completeOnboarding(formData);
-      // On success, go to dashboard
+      await api.completeOnboarding({
+        age: parseInt(formData.age) || 0,
+        gender: formData.gender,
+        height: parseFloat(formData.height) || 0,
+        weight: parseFloat(formData.weight) || 0,
+        targetWeight: parseFloat(formData.targetWeight) || 0,
+        healthIssues: formData.healthIssues || ''
+      });
       navigate('/');
     } catch (err) {
       console.error(err);
@@ -91,18 +96,16 @@ export default function SetupProfile() {
             </div>
           </div>
 
-          {/* Goal */}
+          {/* Target Weight */}
           <div className="setup-group full-width">
-              <label><FaBullseye/> Fitness Goal</label>
-              <select 
-                  value={formData.goal}
-                  onChange={(e) => setFormData({...formData, goal: e.target.value})}
-              >
-                  <option value="Lose Weight">Lose Weight</option>
-                  <option value="Build Muscle">Build Muscle</option>
-                  <option value="Maintain Weight">Maintain Weight</option>
-                  <option value="Improve Stamina">Improve Stamina</option>
-              </select>
+              <label><FaBullseye/> Target Weight (kg) — optional</label>
+              <input
+                  type="number"
+                  placeholder="e.g. 65"
+                  min="2" max="500"
+                  value={formData.targetWeight}
+                  onChange={(e) => setFormData({...formData, targetWeight: e.target.value})}
+              />
           </div>
           
            {/* Health Issues (Optional) */}

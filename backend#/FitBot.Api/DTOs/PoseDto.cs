@@ -1,4 +1,6 @@
 ﻿// DTOs/PoseDto.cs
+using System.Text.Json.Serialization;
+
 namespace FitBot.Api.DTOs
 {
     // .NET calls Python with this
@@ -13,10 +15,19 @@ namespace FitBot.Api.DTOs
     // Python returns this to .NET
     public class PoseProcessResponseDto
     {
+        [JsonPropertyName("success")]
         public bool Success { get; set; }
+
+        [JsonPropertyName("error")]
         public string? Error { get; set; }
+
+        [JsonPropertyName("total_frames")]
         public int TotalFramesProcessed { get; set; }
+
+        [JsonPropertyName("motion_pattern")]
         public object? MotionPattern { get; set; }  // deserialized from JSON
+
+        [JsonPropertyName("video_metadata")]
         public string? VideoMetadata { get; set; }
     }
 

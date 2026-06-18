@@ -66,9 +66,8 @@ namespace FitBot.Api.Services
                     BmiValue = bmi,
                     IsBmiFromAi = false
                 };
-                _context.UserProfiles.Add(newProfile);
-                await _context.SaveChangesAsync();
                 user.Profile = newProfile;
+                _context.UserProfiles.Add(newProfile);
             }
 
             var log = new BmiLog
@@ -102,13 +101,26 @@ namespace FitBot.Api.Services
                 return null;
 
             float heightInMeters = request.Height / 100f;
+            float bmi = request.Weight / (heightInMeters * heightInMeters);
+
             user.Profile.Age = request.Age;
             user.Profile.Gender = request.Gender;
             user.Profile.Height = request.Height;
             user.Profile.Weight = request.Weight;
             user.Profile.HealthIssues = request.HealthIssues;
             user.Profile.TargetWeight = request.TargetWeight;
-            user.Profile.BmiValue = request.Weight / (heightInMeters * heightInMeters);
+            user.Profile.BmiValue = bmi;
+            user.Profile.IsBmiFromAi = false;
+
+            var log = new BmiLog
+            {
+                UserId = user.Id,
+                Height = request.Height,
+                Weight = request.Weight,
+                BmiValue = bmi,
+                DateRecorded = DateTime.UtcNow
+            };
+            _context.BmiLogs.Add(log);
 
             await _context.SaveChangesAsync();
             return user.Profile;

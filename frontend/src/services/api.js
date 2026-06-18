@@ -47,8 +47,9 @@ export const api = {
     },
 
     // ── Profile ─────────────────────────────────────────────────────────────────
-    createProfile: async (profileData, token) => {
-        const response = await fetch(`${API_URL}/profile`, {
+    createProfile: async (profileData) => {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${API_URL}/profile/onboarding`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

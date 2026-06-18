@@ -64,7 +64,22 @@ namespace FitBot.Api.Controllers
             if (user.Profile == null)
                 return NotFound("Profile not set up.");
 
-            return Ok(user.Profile);
+            // Return profile fields + user identity fields so the frontend can
+            // display the username and email on the profile page.
+            return Ok(new
+            {
+                user.Profile.Id,
+                user.Profile.Age,
+                user.Profile.Gender,
+                user.Profile.Height,
+                user.Profile.Weight,
+                user.Profile.BmiValue,
+                user.Profile.IsBmiFromAi,
+                user.Profile.TargetWeight,
+                user.Profile.HealthIssues,
+                username = user.Username,
+                email    = user.Email,
+            });
         }
 
         [HttpGet("bmi-logs")]

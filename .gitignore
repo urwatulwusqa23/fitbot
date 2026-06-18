@@ -17,3 +17,12 @@ obj/
 
 # Node
 node_modules/
+
+# Large ML model binaries (download/train separately)
+*.pt
+*.pth
+*.task
+*.onnx
+
+# Jupyter checkpoints
+.ipynb_checkpoints/

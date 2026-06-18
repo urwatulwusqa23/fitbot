@@ -57,30 +57,41 @@ namespace FitBot.Api.Controllers
         {
             try
             {
-                // Get profile if user is logged in — optional, works without auth too
+                // Get profile + memory if user is logged in — optional, works without auth too
                 UserProfile? profile = null;
+                List<DeepMemory>? memory = null;
+                User? currentUser = null;
+
                 var username = User.FindFirst(ClaimTypes.Name)?.Value
                             ?? User.FindFirst("name")?.Value;
                 if (!string.IsNullOrEmpty(username))
                 {
-                    var user = await _profileService.GetUserByUsernameAsync(username);
-                    profile = user?.Profile;
+                    currentUser = await _profileService.GetUserByUsernameAsync(username);
+                    profile = currentUser?.Profile;
 
-                    // Save user message to chat history
-                    if (user != null && !string.IsNullOrEmpty(request.SessionId))
+                    if (currentUser != null)
                     {
-                        _db.ChatHistories.Add(new ChatHistory
+                        // Load deep memory so the AI can use learned preferences
+                        memory = await _db.DeepMemories
+                            .Where(m => m.UserId == currentUser.Id)
+                            .ToListAsync();
+
+                        // Save user message to chat history
+                        if (!string.IsNullOrEmpty(request.SessionId))
                         {
-                            UserId = user.Id,
-                            SessionId = request.SessionId,
-                            Role = "user",
-                            Content = request.Message
-                        });
-                        await _db.SaveChangesAsync();
+                            _db.ChatHistories.Add(new ChatHistory
+                            {
+                                UserId = currentUser.Id,
+                                SessionId = request.SessionId,
+                                Role = "user",
+                                Content = request.Message
+                            });
+                            await _db.SaveChangesAsync();
+                        }
                     }
                 }
 
-                var aiTask = _chatService.GetAiResponseAsync(request.Message, request.History, profile);
+                var aiTask = _chatService.GetAiResponseAsync(request.Message, request.History, profile, memory);
                 bool isVideoRequest = IsVideoRequest(request.Message);
                 Task<ChatVideoResponseDto>? videoTask = isVideoRequest
                     ? _videoService.ProcessChatPromptAsync(request.Message)
@@ -91,21 +102,17 @@ namespace FitBot.Api.Controllers
                 var aiResult = await aiTask;
                 var videoResult = videoTask != null ? await videoTask : null;
 
-                // Save bot reply to chat history
-                if (!string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(request.SessionId))
+                // Save bot reply to chat history — reuse the cached user, no second DB lookup
+                if (currentUser != null && !string.IsNullOrEmpty(request.SessionId))
                 {
-                    var user = await _profileService.GetUserByUsernameAsync(username);
-                    if (user != null)
+                    _db.ChatHistories.Add(new ChatHistory
                     {
-                        _db.ChatHistories.Add(new ChatHistory
-                        {
-                            UserId = user.Id,
-                            SessionId = request.SessionId,
-                            Role = "assistant",
-                            Content = aiResult.Reply
-                        });
-                        await _db.SaveChangesAsync();
-                    }
+                        UserId = currentUser.Id,
+                        SessionId = request.SessionId,
+                        Role = "assistant",
+                        Content = aiResult.Reply
+                    });
+                    await _db.SaveChangesAsync();
                 }
 
                 // Detect plan type

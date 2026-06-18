@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { Container, Row, Col, Form, Button, Card, Nav } from "react-bootstrap";
 import "bootstrap/dist/css/bootstrap.min.css";
 
-const FLASK_URL = "http://localhost:5050";
+const FLASK_URL = process.env.REACT_APP_BMI_URL || "http://localhost:5050";
 
 const BMICalculator = () => {
     // ── Manual tab ──
@@ -11,6 +11,9 @@ const BMICalculator = () => {
     const [weight, setWeight]     = useState("");
     const [bmi, setBmi]           = useState(null);
     const [category, setCategory] = useState("");
+
+    // ── Manual tab ──
+    const [manualError, setManualError] = useState("");
 
     // ── Image tab ──
     const [imageFile, setImageFile]       = useState(null);
@@ -27,16 +30,29 @@ const BMICalculator = () => {
     // Manual BMI logic
     // ─────────────────────────────────────────────────────────────────────────
     const calculateBMI = () => {
-        const h = parseFloat(height) / 100;
+        setManualError("");
+        const h = parseFloat(height);
         const w = parseFloat(weight);
-        if (h > 0 && w > 0) {
-            const v = w / (h * h);
-            setBmi(parseFloat(v.toFixed(1)));
-            if (v < 18.5)      setCategory("Underweight");
-            else if (v < 25)   setCategory("Normal weight");
-            else if (v < 30)   setCategory("Overweight");
-            else               setCategory("Obese");
+        if (!h || !w || h <= 0 || w <= 0) {
+            setManualError("Please enter valid height and weight.");
+            return;
         }
+        if (h < 50 || h > 300) {
+            setManualError("Height must be between 50 and 300 cm.");
+            return;
+        }
+        if (w < 2 || w > 500) {
+            setManualError("Weight must be between 2 and 500 kg.");
+            return;
+        }
+        const hm = h / 100;
+        const v = w / (hm * hm);
+        setBmi(parseFloat(v.toFixed(1)));
+        if (v < 18.5)       setCategory("Underweight");
+        else if (v < 25)    setCategory("Normal weight");
+        else if (v < 30)    setCategory("Overweight");
+        else if (v < 35)    setCategory("Obese Class I");
+        else                setCategory("Obese Class II+");
     };
 
     const getBMIColor = (val) => {
@@ -44,7 +60,8 @@ const BMICalculator = () => {
         if (val < 18.5) return "#3498db";
         if (val < 25)   return "#2ecc71";
         if (val < 30)   return "#f39c12";
-        return "#e74c3c";
+        if (val < 35)   return "#e74c3c";
+        return "#8e44ad";
     };
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -234,6 +251,12 @@ const BMICalculator = () => {
                                 boxShadow: "0 0 15px rgba(139,92,246,0.4)",
                             }}>Calculate BMI</Button>
 
+                            {manualError && (
+                                <div style={{ marginTop: "12px", padding: "12px", backgroundColor: "#2a0a0a", border: "1px solid #7a1a1a", borderRadius: "10px", color: "#ff6b6b", fontSize: "14px" }}>
+                                    ⚠️ {manualError}
+                                </div>
+                            )}
+
                             {bmi !== null && (
                                 <div style={{ backgroundColor: "#1b122b", borderRadius: "16px", border: "1px solid #2e2440", padding: "20px", marginTop: "20px", textAlign: "center" }}>
                                     <p style={{ color: "#a3a1b0", marginBottom: "5px" }}>Your BMI</p>
@@ -241,10 +264,11 @@ const BMICalculator = () => {
                                     <p style={{ color: "#b0acbc", fontSize: "15px", fontWeight: "600" }}>{category}</p>
                                     <GaugeBar bmiVal={bmi} lo={null} hi={null} />
                                     <div style={{ fontSize: "13px", color: "#a3a1b0", marginTop: "10px" }}>
-                                        <p style={{ color: "#3aa0ff" }}>Underweight: &lt; 18.5</p>
-                                        <p style={{ color: "#4CAF50" }}>Normal: 18.5 – 24.9</p>
-                                        <p style={{ color: "#ffcc00" }}>Overweight: 25 – 29.9</p>
-                                        <p style={{ color: "#ff4c4c" }}>Obese: ≥ 30</p>
+                                        <p style={{ color: "#3498db" }}>Underweight: &lt; 18.5</p>
+                                        <p style={{ color: "#2ecc71" }}>Normal: 18.5 – 24.9</p>
+                                        <p style={{ color: "#f39c12" }}>Overweight: 25 – 29.9</p>
+                                        <p style={{ color: "#e74c3c" }}>Obese Class I: 30 – 34.9</p>
+                                        <p style={{ color: "#8e44ad" }}>Obese Class II+: ≥ 35</p>
                                     </div>
                                 </div>
                             )}

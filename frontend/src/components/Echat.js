@@ -223,7 +223,7 @@ const Echat = () => {
                                 placeholder="Ask anything about fitness…"
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
-                                onKeyPress={handleKey}
+                                onKeyDown={handleKey}
                                 disabled={isLoading}
                                 rows={1}
                                 style={{ resize: "none", overflow: "hidden" }}
