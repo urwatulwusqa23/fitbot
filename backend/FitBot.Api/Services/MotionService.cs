@@ -47,6 +47,10 @@ namespace FitBot.Api.Services
             var client = _http.CreateClient();
             client.Timeout = TimeSpan.FromMinutes(10); // download + processing takes time
 
+            var internalKey = _config["PythonService:InternalApiKey"];
+            if (!string.IsNullOrWhiteSpace(internalKey))
+                client.DefaultRequestHeaders.Add("X-Internal-Key", internalKey);
+
             var payload = JsonSerializer.Serialize(new
             {
                 video_id = videoId,

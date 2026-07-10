@@ -12,9 +12,6 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // DB
-//builder.Services.AddDbContext<AppDbContext>(options =>
-//    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -33,35 +30,16 @@ builder.Services.AddHostedService<VideoDiscoveryJob>();
 // HttpClient
 builder.Services.AddHttpClient();
 
-// CORS (IMPORTANT FIXED)
-//builder.Services.AddCors(options =>
-//{
-//    options.AddPolicy("AllowReactApp", policy =>
-//    {
-//        policy
-//            .AllowAnyHeader()
-//            .AllowAnyMethod()
-//            .AllowCredentials()
-//            .SetIsOriginAllowed(_ => true); // allows localhost + any dev origin
-//    });
-//});
-//builder.Services.AddCors(options =>
-//{
-//    options.AddPolicy("AllowReactApp", policy =>
-//    {
-//        policy
-//            .WithOrigins("http://localhost:3000") // Be explicit about your frontend
-//            .AllowAnyHeader()
-//            .AllowAnyMethod()
-//            .AllowCredentials();
-//    });
-//});
+// CORS
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? new[] { "http://localhost:3000", "https://localhost:3000" };
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
         policy
-            .WithOrigins("http://localhost:3000", "https://localhost:3000")
+            .WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
@@ -82,23 +60,6 @@ builder.Services.AddAuthentication()
     };
 });
 
-//builder.Services.AddCors(options =>
-//{
-//    options.AddPolicy("ProductionPolicy", policy =>
-//    {
-//        policy.WithOrigins(
-//            "https://frontend-liart-two-37.vercel.app",   // Replace with your actual Vercel URL
-//            "https://your-custom-domain.com"  // If you have a custom domain
-//        )
-//        .AllowAnyHeader()
-//        .AllowAnyMethod()
-//        .AllowCredentials(); // Only if using cookies/sessions
-//    });
-//});
-
-// Add this AFTER app.Build() but BEFORE app.MapControllers()
-
-
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
 builder.WebHost.UseUrls($"http://+:{port}");
 
@@ -110,9 +71,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// ❌ IMPORTANT FIX: REMOVE HTTPS REDIRECT (causes your shutdown issue)
-//app.UseHttpsRedirection(); // ❌ you can comment this out
-
+// HTTPS redirection is handled by the hosting platform's reverse proxy/TLS termination.
 app.UseRouting();
 
 app.UseCors("AllowFrontend");

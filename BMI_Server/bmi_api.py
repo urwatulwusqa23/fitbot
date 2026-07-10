@@ -18,7 +18,11 @@ import warnings
 warnings.filterwarnings("ignore")
 
 app = Flask(__name__)
-CORS(app)
+# Restrict to the known frontend origin(s); set BMI_ALLOWED_ORIGINS (comma-separated) in prod.
+_allowed_origins = os.environ.get(
+    "BMI_ALLOWED_ORIGINS", "http://localhost:3000,https://localhost:3000"
+).split(",")
+CORS(app, origins=_allowed_origins)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIGURATION

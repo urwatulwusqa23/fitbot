@@ -12,8 +12,7 @@ namespace FitBot.Api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    // Uncomment the line below once you configure the Admin role in your JWT/DB:
-    // [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin")]
     public class AdminController : ControllerBase
     {
         private readonly AppDbContext _context;

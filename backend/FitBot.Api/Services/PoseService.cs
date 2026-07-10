@@ -104,6 +104,10 @@ namespace FitBot.Api.Services
             var client = _httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromMinutes(5);  // video processing takes time
 
+            var internalKey = _config["PythonService:InternalApiKey"];
+            if (!string.IsNullOrWhiteSpace(internalKey))
+                client.DefaultRequestHeaders.Add("X-Internal-Key", internalKey);
+
             var payload = new
             {
                 video_id = videoId,

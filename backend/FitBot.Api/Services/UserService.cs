@@ -95,15 +95,17 @@ namespace FitBot.Api.Services
 
         public async Task<(string token, bool hasProfile)?> GoogleLoginAsync(string idToken)
         {
+            var googleClientId = _configuration["Google:ClientId"];
+            if (string.IsNullOrWhiteSpace(googleClientId))
+                throw new InvalidOperationException("Google:ClientId is not configured.");
+
             GoogleJsonWebSignature.Payload? payload;
             try
             {
-                var settings = new GoogleJsonWebSignature.ValidationSettings();
-                var googleClientId = _configuration["Google:ClientId"];
-                if (!string.IsNullOrWhiteSpace(googleClientId))
+                var settings = new GoogleJsonWebSignature.ValidationSettings
                 {
-                    settings.Audience = new[] { googleClientId };
-                }
+                    Audience = new[] { googleClientId }
+                };
                 payload = await GoogleJsonWebSignature.ValidateAsync(idToken, settings);
             }
             catch

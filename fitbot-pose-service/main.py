@@ -1,6 +1,7 @@
 # main.py — FitBot Pose Service
-from fastapi import FastAPI, HTTPException, BackgroundTasks
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Header, Depends
+from pydantic import BaseModel, field_validator
+from urllib.parse import urlparse
 import mediapipe as mp
 import numpy as np
 import cv2
@@ -9,6 +10,33 @@ import tempfile
 import yt_dlp
 
 app = FastAPI(title="FitBot Pose Service")
+
+# ── Internal-only access control ─────────────────────────────────────────────
+# This service is only meant to be called by the trusted .NET backend, never
+# directly by end users. Require a shared secret set via env var in any
+# environment where the service is network-reachable.
+INTERNAL_API_KEY = os.environ.get("INTERNAL_API_KEY")
+
+def require_internal_key(x_internal_key: str = Header(default=None)):
+    if INTERNAL_API_KEY and x_internal_key != INTERNAL_API_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+ALLOWED_YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "youtu.be", "m.youtube.com"}
+
+def validate_youtube_url(url: str) -> str:
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or parsed.hostname not in ALLOWED_YOUTUBE_HOSTS:
+        raise ValueError("Only youtube.com/youtu.be URLs are allowed.")
+    return url
+
+def validate_uploaded_video_path(path: str) -> str:
+    # Uploaded videos are saved by the .NET backend into the system temp dir;
+    # reject anything outside it to prevent path traversal / arbitrary file reads.
+    tmp_dir = os.path.realpath(tempfile.gettempdir())
+    real_path = os.path.realpath(path)
+    if os.path.commonpath([tmp_dir, real_path]) != tmp_dir:
+        raise ValueError("video_path must be inside the system temp directory.")
+    return path
 
 mp_pose = mp.solutions.pose
 
@@ -177,13 +205,23 @@ class ProcessYouTubeRequest(BaseModel):
     exercise_name: str
     sample_rate:  int = 5
 
+    @field_validator("youtube_url")
+    @classmethod
+    def _validate_youtube_url(cls, v):
+        return validate_youtube_url(v)
+
 class ProcessUploadedRequest(BaseModel):
     video_path:   str
     exercise_name: str
     sample_rate:  int = 5
 
+    @field_validator("video_path")
+    @classmethod
+    def _validate_video_path(cls, v):
+        return validate_uploaded_video_path(v)
+
 # ── Endpoints ────────────────────────────────────────────────────────────────
-@app.post("/api/process-youtube")
+@app.post("/api/process-youtube", dependencies=[Depends(require_internal_key)])
 async def process_youtube(req: ProcessYouTubeRequest):
     """
     Called by .NET when a user requests pose analysis for a YouTube video.
@@ -222,7 +260,7 @@ async def process_youtube(req: ProcessYouTubeRequest):
             os.remove(tmp_path)
 
 
-@app.post("/api/process-uploaded-video")
+@app.post("/api/process-uploaded-video", dependencies=[Depends(require_internal_key)])
 async def process_uploaded_video(req: ProcessUploadedRequest):
     """
     Called by .NET when a user uploads their own exercise video.
